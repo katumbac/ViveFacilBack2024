@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, re_path
 #from rest_framework.urlpatterns import format_suffix_patterns
 from api.views import *
 from rest_framework.authtoken import views
@@ -28,7 +28,7 @@ urlpatterns += [
     path('unread-suggestions/', UnreadSuggestions.as_view()),
     path('suggestion/<str:pk>', Suggestions_Details.as_view()),
     path('post-token/', DeviceNotification.as_view()),
-    path('dispositivos-notificacion/', DeviceNotification.as_view()),          
+    path('dispositivos-notificacion/', DeviceNotification.as_view()),
     path('categoria_update/<str:id>', Categorias.as_view()),
     path('categoria_delete/<str:id>', Categorias.as_view()),
     path('servicios/', Servicios.as_view()),
@@ -52,14 +52,15 @@ urlpatterns += [
     path('solicitudes_paidPag/<str:correo>',SolicitudesPaidPag.as_view()),      # para Solicitante
     path('solicitudes_no_paidPag/<str:correo>', SolicitudesNoPaidPag.as_view()),# para Solicitante
     path('proveedores/', Proveedores.as_view()),
+    path('proveedores/<str:id>', Proveedores.as_view()),
     # path('proveedor/<str:pk>', Proveedores_Details.as_view()),                #este endpoint es una basura.
     path('providers-search/<str:user>', Proveedores_Search_Name.as_view()),
     path('dates-providers/', Proveedores_Filter_Date.as_view()),
     path('proveedor_estado/<str:id>', Proveedores.as_view()),
     path('proveedor_delete/<str:id>', Proveedores.as_view()),
     path('dato/<str:user>', Dato.as_view()),
-    path('datos/', DatosUsers.as_view()),                                      
-    path('usuarios/', Usuarios.as_view()),                                     
+    path('datos/', DatosUsers.as_view()),
+    path('usuarios/', Usuarios.as_view()),
     path('datoRedes/<str:user>', RegistroFromRedes.as_view()),
     path('profesiones/', Profesiones.as_view()),
     path('profesion/<str:pk>',ProfesionDetails.as_view()),
@@ -97,6 +98,7 @@ urlpatterns += [
     path('proveedor_pendientes/', Proveedores_Pendientes.as_view()),
     path('proveedor_pendiente/', Proveedor_Pendiente_Admin.as_view()),
     path('proveedores_pendientes/<str:pk>', Proveedores_Pendientes_Details.as_view()),
+    path('proveedores_pendientes_email/<str:mail>', Proveedores_Pendientes_Email.as_view()),
     path('proveedores_pendientes2/<str:pk>', Proveedores_Pendientes_Details2.as_view()),
     path('proveedores_rechazados/<str:pk>', Proveedores_Rechazados_Details.as_view()),
     path('proveedores_pendientes/<str:username>/<str:desc>', Proveedores_Pendientes.as_view()),
@@ -118,12 +120,17 @@ urlpatterns += [
     path('complete_dato/<str:username>', Complete_Data_User.as_view()),
     path('proveedores_servicio/<str:servicio_id>',
          ProveedoresByProfesion.as_view()),
+
+    path('confirmar_descuento/<str:mail>', ConfirmarDescuento.as_view()),
+    path('revisar_descuento_unico/<str:mail>', RevisarDescuentoUnico.as_view()),
+    path('usar_descuento_unico/<str:mail>', UsarDescuentoUnico.as_view()),
+
     # ! Quitar, ya no se va a usar
     path('proveedores_interesados/<str:id_proveedor_user_datos>',
          Proveedores_Interesados.as_view()),
     path('proveedores_interesadosFecha/<str:id_proveedor_user_datos>',
          Proveedores_InteresadosFecha.as_view()),
-    
+
     # Paginado
     path('proveedores_interesadosPag/<str:id_proveedor_user_datos>',
          Proveedores_Interesados_Pag.as_view()),
@@ -134,6 +141,7 @@ urlpatterns += [
     path('solicitudes-pagadas/<str:id>', SolicitudesPagadas.as_view()),
     path('notificaciones/', Notificaciones.as_view()),
     path('notificaciones/<str:id>', Notificaciones.as_view()),
+    path('notificaciones_estado/', Notificaciones_Details.as_view()),
     path('notificacion_chat/',Notificacion_Chat.as_view()),
     path('notificacion_chat_proveedor/',Notificacion_Chat_Proveedor.as_view()),
     path('notificacion_general',Notificacion_General.as_view()),
@@ -145,6 +153,7 @@ urlpatterns += [
     path('promocion_delete/<str:id>', Promociones.as_view()),
     path('promocion_estado/', Promocion_Details.as_view()),
     path('cupones/', Cupones.as_view()),
+    path('all_cupones/', Cupones.as_view()),
     path('cupon_update/<str:id>', Cupones.as_view()),
     path('cupon_delete/<str:id>', Cupones.as_view()),
     path('cupones/<str:pk>', Cupon_Details.as_view()),
@@ -155,6 +164,7 @@ urlpatterns += [
     path('grupos/', Grupos.as_view()),
     path('recuperarpassword/<str:user_email>', RecuperarPassword.as_view()),
     path('validarcodigo/<str:email>/<str:codigo>', ValidarCodigo.as_view()),
+    path('recuperarpassword/<str:user_email>', RecuperarPassword.as_view()),
     path('cambiopasswordcodigo/<str:email>/<str:password>/<str:codigo>', CambioPasswordCodigo.as_view()),
     path('cambiocontrasenia/<str:email>/<str:password>', CambioContrasenia.as_view()),
     path('pago_tarjeta/', PagosTarjeta.as_view()),
@@ -193,7 +203,8 @@ urlpatterns += [
     path('proveedores_registro/', ProveedorRegistro.as_view()),
     path('edicion_proveedor/', ProveedorEdicion.as_view()),
     path('notificacion-anuncio/', SendNotificacion.as_view()),
-    path('notificacion-anuncio/<str:id>', SendNotificacion.as_view()), 
+    path('notificacion-anuncio/<str:id>', SendNotificacion.as_view(), name='notificacion-anuncio-detail'),
+    path('notificacion-anuncio-estado/', SendNotificacion_Details.as_view()),
     path('roles-permisos/', RolesPermisos.as_view()),
     path('roles-permisos/<str:id>', RolesPermisos.as_view()),
     path('obtener-proveedor/<str:pk>', Get_Proveedor.as_view()),
@@ -216,8 +227,12 @@ urlpatterns += [
     path('valor_total_provider/', ValorTotalProveedores.as_view()),
     path('profesion_proveedor/<str:proveedor_id>',ProfesionProveedor.as_view()),
     path('puntos/<str:email>',Puntos.as_view()),
-
-
+    path('politica/',Politica.as_view()),
+    re_path("static/", AdminPage.as_view()),
+    path('actualizar_caducidad/<str:pk>', ActualizarCaducidad.as_view()),
+    path('bancos/', Bancos.as_view()),
+    path('bancos/delete/<int:id>', Bancos.as_view()),
+    
     # path('pagos/', Pagos.as_view()),
     # path('send_correo/', EnviarCorreoProveedor.as_view()),
 
