@@ -12,6 +12,9 @@ from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework import viewsets
 from rest_framework import status
+from django.shortcuts import get_object_or_404
+from django.db.models import Q
+from django.db import transaction
 from rest_framework.renderers import JSONRenderer
 from django.contrib.auth.models import User, Group, Permission
 from django.db.models import Count, Sum
@@ -1477,6 +1480,15 @@ class Proveedores_Pendientes_Details(APIView):
 
         pendiente.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+class Proveedores_Pendientes_Estado(APIView):
+    
+    def put(self, request):
+        ident = request.GET.get('id')
+        prov = Proveedor_Pendiente.objects.get(id=ident)
+        prov.estado = 1
+        prov.save()
+        return Response(status=status.HTTP_200_OK)
 
 class Proveedores_Pendientes_Details2(APIView):
 
@@ -1492,6 +1504,15 @@ class Proveedores_Pendientes_Details2(APIView):
         thread = threading.Thread(target=formatEmail.send_email([pendiente.email], asunto, 'emails/formularioRechazado.html', {
                                               "username": pendiente.nombres + ' ' + pendiente.apellidos, "user": pendiente.email, "razon": razon}))
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+class Proveedores_Rechazado_Estado(APIView):
+    
+    def put(self, request):
+        ident = request.GET.get('id')
+        prov = Proveedor_Pendiente.objects.get(id=ident)
+        prov.estado = 1
+        prov.save()
+        return Response(status=status.HTTP_200_OK)
 
 class Proveedores_Proveedores_Details(APIView):
 
@@ -1582,6 +1603,30 @@ class Proveedores_Proveedores_Details(APIView):
 
         pendiente.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+class ProveedorDeleteView(APIView):
+    def delete(self, request, proveedor_id):
+        # Obtener el proveedor
+        proveedor = get_object_or_404(Proveedor, id=proveedor_id)
+
+        # Usar una transacción para asegurar que las eliminaciones se realicen de manera atómica
+        with transaction.atomic():
+            # Eliminar los Envio_Interesados asociados
+            Envio_Interesados.objects.filter(solicitud__proveedor=proveedor).delete()
+
+            # Eliminar las solicitudes asociadas al proveedor
+            solicitudes_eliminadas = Solicitud.objects.filter(proveedor=proveedor).delete()
+
+            # Eliminar el proveedor
+            proveedor.delete()
+
+        # Respuesta exitosa
+        return Response({
+            "message": "Proveedor, solicitudes y envíos eliminados exitosamente.",
+            "solicitudes_eliminadas": solicitudes_eliminadas[0],
+        }, status=status.HTTP_204_NO_CONTENT)
+
+        
 class Proveedores_Rechazados_Details(APIView):
 
     def get(self, request, pk, format=None):
@@ -2667,7 +2712,7 @@ class Proveedores_Rechazados(APIView, MyPaginationMixin):
     #     proveedor_pendiente = Proveedor_Pendiente.objects.all().filter()
     #     serializer = Proveedor_PendienteSerializer(proveedor_pendiente,many= True)
     #     return Response(serializer.data)
-    queryset = Proveedor_Pendiente.objects.all().order_by('-id').filter(estado=1)
+    queryset = Proveedor_Pendiente.objects.filter(estado=1).filter(Q(rechazo__isnull=False) & ~Q(rechazo='')).order_by('-id')
     serializer_class = Proveedor_PendienteSerializer
     pagination_class = MyCustomPagination
 
