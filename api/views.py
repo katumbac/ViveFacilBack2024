@@ -2803,9 +2803,11 @@ class Proveedores_Proveedores(APIView, MyPaginationMixin):
     #     return Response(serializer.data)
     print("querysetBan")
     formatEmail = FormatEmail()
-    for e in Proveedor.objects.all().order_by('-id').filter(fecha_caducidad__lt=date.today()):
+    today = timezone.now().date()
+    for e in Proveedor.objects.all().order_by('-id').filter(fecha_caducidad__lt=today):
         if e.estado != False:
             thread = threading.Thread(target=formatEmail.send_email([e.user_datos.user.username], "Cuenta caducada", 'emails/enviarAlerta.html', {"username":e.user_datos.user.username, "contenido": "Tu cuenta ha caducado, si deseas extender tu contrato contactanos por nuestros canales oficiales."}))
+            thread.start()
         print('e.fecha_caducidad')
         print(e.fecha_caducidad)
         e.estado = False
@@ -4037,6 +4039,23 @@ class Notificaciones(APIView, MyPaginationMixin):
             data['success'] = False
             data['message'] = f"Hubo un error al enviar la notificación: {str(e)}"
             return Response(data)
+        
+    def put(self, request, id, format=None):
+        try:
+            id = int(id)
+            notificacion = Notificacion.objects.get(id=id)
+            serializer = NotificacionSerializer(notificacion, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save() 
+                return Response(serializer.data)
+            print("Errores de validación:", serializer.errors)
+            
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Notificacion.DoesNotExist:
+            return Response({"error": "Notificación no encontrada."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def delete(self,  request, id, format=None):
         data = {}
@@ -5249,11 +5268,13 @@ class SendNotificacion(APIView):
     
     def put(self, request, id, format=None):
         try:
+            id = int(id)
             notificacion = NotificacionMasiva.objects.get(id=id)
             serializer = NotificacionMasivaSerializer(notificacion, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save() 
                 return Response(serializer.data)
+            print("Errores de validación:", serializer.errors)
             
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
