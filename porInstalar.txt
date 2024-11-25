@@ -1,0 +1,46 @@
+Cartopy==0.20.0
+feedparser==5.2.1
+gevent==1.4.0
+netCDF4==1.5.3
+pandas==0.25.2
+pocketsphinx==0.1.15
+psycopg2==2.8.5
+psycopg2-binary==2.8.4
+
+pip install django-inlinecss
+
+
+
+pip install django-inlinecss
+pip install django-cors-headers
+pip install naomi
+pip install mysqlclient
+pip install dj-rest-auth
+pip install google-auth
+pip install Pillow
+
+pip install psycopg2
+pip install Pillow
+
+---------------------------------- SI 
+'''django==2.2.7
+djangorestframework>=3.9,<3.13  # Compatible con Django 2.2
+google-auth==2.16.0 # Compatible con Django 2.2
+requests==2.28.2
+requests-cache==0.5.2
+requests-file==1.4.3
+requests-oauthlib==1.3.1
+retrying==1.3.3
+django-allauth==0.52.0  # Compatible con Django 2.2
+django-naomi==0.8
+django-object-tools==2.0.0
+django-rest-auth==0.9.5
+django-contrib-comments==1.9.1
+django-cors-headers==3.11.0
+django-filter==2.3.0
+django-formtools==2.1
+django-inlinecss==0.3.0
+fcm-django==0.3.7
+pyfcm==1.4.9
+pytz==2020.1
+urllib3==1.26.14'''
