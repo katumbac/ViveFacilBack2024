@@ -36,7 +36,7 @@ from urllib3.util.retry import Retry
 from django.template.loader import get_template
 from fcm_django.models import FCMDevice
 from pyfcm import FCMNotification
-from firebase_admin.messaging import Message, Notification
+# from firebase_admin.messaging import Message, Notification
 from django.db.models import Q
 from datetime import date, timedelta, datetime
 from base64 import b64encode
@@ -58,7 +58,7 @@ import os
 from django.core.files import File
 import codecs
 import pytz
-
+from firebase_admin import messaging
 
 class CardsAuth(APIView):
 
@@ -391,7 +391,8 @@ class DeviceNotification(APIView):
             return Response(data)
         else:
             data['success'] = False
-            data['message'] = 'No se han encontrados dispositivos con el correo: ' + correo + ' registrados en la base de datos'
+            data['message'] = 'No se han encontrados dispositivos con el correo: ' + \
+                correo + ' registrados en la base de datos'
             return Response(data)
 
     def post(self, request, format=None):
@@ -658,20 +659,36 @@ class Categorias(APIView):
                     dataMensaje["descripcion"] = "Es de nuestro agrado informarles que la Categoría " + \
                         categoria.nombre + " ha regresado nuevamente a su servicio"
                     dataMensaje["ruta"] = "/main-tabs/home"
-
+                    
                 # devices = FCMDevice.objects.filter(user__id = 542)
                 devices = FCMDevice.objects.filter(
                     active=True, user__groups__name="Solicitante")
-                                # Envía el mensaje
-                                
-                notification = Notification(
-                    title=titles,
-                    body=bodys,
-                )
-                devices.send_message(
-                    Message(data=dataMensaje, notification=notification)
-                )
+                tokend = devices.values_list('registration_id', flat=True)
+                
+                if tokend:
+                    # Construir el mensaje
+                    message = messaging.MulticastMessage(
+                        notification=messaging.Notification(
+                            title=titles,
+                            body=bodys,
+                        ),
+                        data=dataMensaje,
+                        tokens=list(tokend),  # Convertir a lista
+                    )
 
+                    # Enviar la notificación
+                    response = messaging.send_multicast(message)
+
+                    if response.success_count > 0:
+                        dataMensaje['message'] = f'Se enviaron {response.success_count} mensajes.'
+                        dataMensaje['success'] = True
+                    else:
+                        dataMensaje['message'] = 'No se lograron enviar mensajes.'
+                        dataMensaje['success'] = False
+                
+                else:
+                    dataMensaje['message'] = 'No hay dispositivos registrados para enviar la notificación.'
+                    dataMensaje['success'] = False
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -684,21 +701,28 @@ class Categorias(APIView):
         # Notificacion a los usuarios
         devices = FCMDevice.objects.filter(
             active=True, user__groups__name='Solicitante')
+        tokend = devices.values_list('registration_id', flat=True)
+        
+        
         dataMensaje["descripcion"] = "Lamentamos informarles que la Categoría " + \
             categoria.nombre + " ha sido eliminada de la aplicación"
         dataMensaje["ruta"] = "/main-tabs/home"
-        
-        titles="Categoría Eliminada: "+categoria.nombre
-        bodys="¡Sorry, no podrás acceder a la categoría!"
-                                       
-        notification = Notification(
-            title=titles,
-            body=bodys,
-        )
-        devices.send_message(
-            Message(data=dataMensaje, notification=notification)
-        )
+        # Notificacion a los usuarios
+        titles = "Categoría Eliminada: "+categoria.nombre
+        bodys = "¡Sorry, no podrás acceder a la categoría!"
+        if tokend:
+            # Construir el mensaje
+            message = messaging.MulticastMessage(
+                notification=messaging.Notification(
+                title=titles,
+                body=bodys,
+                ),
+                data=dataMensaje,
+                tokens=list(tokend),  # Convertir a lista
+            )
 
+            # Enviar la notificación
+            messaging.send_multicast(message)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def post(self, request, format=None):
@@ -714,20 +738,27 @@ class Categorias(APIView):
         # Notificacion a los usuarios
         devices = FCMDevice.objects.filter(
             active=True, user__groups__name='Solicitante')
-        
+        # Obtiene la lista de registration_ids (tokens)
+        tokend = devices.values_list('registration_id', flat=True)
+          
         titles="Nueva Categoría: "+nombre
-        bodys="¡Dale un vistazo!"
-        data={"ruta": "/main-tabs/home",
-                  "descripcion": "Vive Fácil cuenta con una nueva Categoría llamada " + categoria_creada.nombre}
-        
-        notification = Notification(
-            title=titles,
-            body=bodys,
-        )
-        
-        devices.send_message(
-            Message(data=data, notification=notification)
-        )
+        bodys="¡Dale un vistazo!"  
+        data["ruta"] = "/main-tabs/home"
+        data["descripcion"] = "Vive Fácil cuenta con una nueva Categoría llamada " + categoria_creada.nombre
+            
+        if tokend:
+            # Construir el mensaje
+            message = messaging.MulticastMessage(
+                notification=messaging.Notification(
+                title=titles,
+                body=bodys,
+                ),
+                data=data,
+                tokens=list(tokend),  # Convertir a lista
+            )
+
+            messaging.send_multicast(message)
+
 
         data['categoria'] = serializer.data
         if categoria_creada:
@@ -769,6 +800,7 @@ class Servicios(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, id, format=None):
+        data = {}
         servicios = Servicio.objects.get(id=id)
         nombreServico = servicios.nombre
         servicios.estado = 0
@@ -777,20 +809,30 @@ class Servicios(APIView):
         # Notificacion a los usuarios
         devices = FCMDevice.objects.filter(
             active=True, user__groups__name='Solicitante')
+        tokend = devices.values_list('registration_id', flat=True)
+        
+        titles="Servicio Eliminado: " + nombreServico
+        bodys="¡Sorry, no podrás acceder al Servicio!"
+        data["ruta"] = "/main-tabs/home"
+        data["descripcion"] = "El servicio " + nombreServico + " se ha eliminado de nuestro aplicativo"
+        # Verifica que haya tokens para enviar
+        if tokend:
+            # Construir el mensaje
+            message = messaging.MulticastMessage(
+                        notification=messaging.Notification(
+                            title=titles,
+                            body=bodys,
+                        ),
+                        data={
+                            "ruta": "/main/home",
+                            "descripcion": "Se ha recibido una solicitud de servicio.",
+                        },
+                        tokens=list(tokend),  # Convertir a lista
+            )
 
-        titles="Servicio Eliminado: " + nombreServico,
-        bodys="¡Sorry, no podrás acceder al Servicio!",
-        data={"ruta": "/main-tabs/home", "descripcion": "El servicio " +
-                  nombreServico + " se ha eliminado de nuestro aplicativo"}
-        
-        notification = Notification(
-            title=titles,
-            body=bodys,
-        )
-        
-        devices.send_message(
-            Message(data=data, notification=notification)
-        )
+            # Enviar la notificación
+            messaging.send_multicast(message)
+            
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def post(self, request, format=None):
@@ -815,20 +857,27 @@ class Servicios(APIView):
             # Notificacion a los usuarios
 
             devices = FCMDevice.objects.filter(
-               active=True, user__groups__name="Solicitante")
+                 active=True, user__groups__name="Solicitante")
+            tokend = devices.values_list('registration_id', flat=True)
             
             titles="Nuevo Servicio: "+nombre,
             bodys="¡Dale un vistazo!",
-            data_me={"ruta": "/main-tabs/home", "descripcion": "El servicio " +
-                     nombre + " se ha agregado a nuestro aplicativo"}
-            notification = Notification(
-                title=titles,
-                body=bodys,
+
+            message = messaging.MulticastMessage(
+                        notification=messaging.Notification(
+                            title=titles,
+                            body=bodys,
+                        ),
+                        data={
+                            "ruta": "/main-tabs/home",
+                            "descripcion": "El servicio " + nombre + " se ha agregado a nuestro aplicativo",
+                        },
+                        tokens=list(tokend),  # Convertir a lista
             )
-            
-            devices.send_message(
-                Message(data=data_me, notification=notification)
-            )
+
+            # Enviar la notificación
+            messaging.send_multicast(message)
+
             return Response(data)
 
         else:
@@ -913,7 +962,6 @@ class Registro(viewsets.ModelViewSet):
                         grupoSolicitante = Group.objects.get(
                             name='Solicitante')
                         grupoSolicitante.user_set.add(usuario)
-                        print("enviar correo solicitante")
                         asunto = 'Bienvenido a Vive Fácil'
                         formatEmail = FormatEmail()
                         thread = threading.Thread(target=formatEmail.send_email([user_email], asunto, 'emails/welcome.html', {"username":nombre_user}))
@@ -1789,18 +1837,22 @@ class AdjudicarSolicitud(APIView):
                 bodys = '¡Dale un vistazo!'
                 devices = FCMDevice.objects.filter(
                     active=True, user__id=proveedor.user_datos.user.id)
-                
-                data_me={"ruta": "/historial",
+                tokend = devices.values_list('registration_id', flat=True)
+            
+                # Construir el mensaje
+                message = messaging.MulticastMessage(
+                        notification=messaging.Notification(
+                            title=titles,
+                            body=bodys,
+                        ),
+                        data={"ruta": "/historial",
                           "descripcion": "Se le ha adjudicado el siguiente servicio: " + solicitud.servicio.nombre},
-                notification = Notification(
-                    title=titles,
-                    body=bodys,
+                        tokens=list(tokend),  # Convertir a lista
                 )
-                
-                devices.send_message(
-                    Message(data=data_me, notification=notification)
-                )
-                
+
+                # Enviar la notificación
+                response = messaging.send_multicast(message)
+
                 data['message'] = 'Solicitud adjudicada exitosamente!.'
                 data['success'] = True
                 data['solicitud'] = serializer.data
@@ -2034,17 +2086,21 @@ class Solicituds(APIView):
                     devices = FCMDevice.objects.filter(
                         active=True, user__username=solicitud.proveedor.user_datos.user.email)
                     
-                    data_me={"ruta": "/historial", "descripcion": "Puede observar la solicitud " +
-                              solicitud.servicio.nombre + " finalizada en la seccion de Historial > PASADAS"}
-                    
-                    notification = Notification(
-                        title=titles,
-                        body=bodys,
+                    # Obtiene la lista de registration_ids (tokens)
+                    tokend = devices.values_list('registration_id', flat=True)
+            
+                    message = messaging.MulticastMessage(
+                        notification=messaging.Notification(
+                            title=titles,
+                            body=bodys,
+                        ),
+                        data={"ruta": "/historial", "descripcion": "Puede observar la solicitud " +
+                              solicitud.servicio.nombre + " finalizada en la seccion de Historial > PASADAS"},
+                        tokens=list(tokend),  # Convertir a lista
                     )
-                    
-                    devices.send_message(
-                        Message(data=data_me, notification=notification)
-                    )
+
+                    # Enviar la notificación
+                    messaging.send_multicast(message)
 
                 data['message'] = 'Solicitud actualizada exitosamente!.'
                 data['success'] = True
@@ -2067,7 +2123,7 @@ class AddSolicitud(APIView):
 
         # solicitud
         desc = request.data.get('descripcion')
-        foto_desc = request.FILES.get('foto_descripcion')
+        foto_desc = request.data.get('foto_descripcion')
         fecha_exp = request.data.get('fecha')
         fecha_creacion = request.data.get('fecha_creacion')
         user = request.data.get('solicitante')  # id solicitante
@@ -2081,23 +2137,11 @@ class AddSolicitud(APIView):
         alt = request.data.get('altitud')
         drc = request.data.get('direccion')
         ref = request.data.get('referencia')  # descripcion
-        foto_ubic = request.FILES.get('foto_ubicacion')
-        
-        # Comprobación de los archivos de las fotos
-        if foto_desc:
-            print("Foto de descripción recibida correctamente:", foto_desc)
-        else:
-            print("No se recibió foto de descripción o está vacía.")
-
-        if foto_ubic:
-            print("Foto de ubicación recibida correctamente:", foto_ubic)
-        else:
-            print("No se recibió foto de ubicación o está vacía.")
-
+        foto_ubic = request.data.get('foto_ubicacion')
 
         print(lat)
         print(alt)
-        print('altitud y latitud')
+        print('aa')
         print(proveedores_id)
         # Intenta obtener o crear en un Objeto Ubicacion con los campos de la ubicacion obtenidos por el body del request.
         try:
@@ -2143,7 +2187,6 @@ class AddSolicitud(APIView):
                                                  foto_descripcion=foto_desc)
             serializer = SolicitudSerializer(solicitud)
         except Exception as e:
-            print("error en obtener soli")
             # Ahora puedes proceder a eliminar la solicitud
             if 'solicitud' in locals():
                 solicitud.delete()
@@ -2156,7 +2199,6 @@ class AddSolicitud(APIView):
         try:
             proveedores_id = proveedores_id.split(",")
         except Exception as e:
-            print("error en obtener proveedores prov")
             solicitud.delete()
             data['message'] = "Ha ocurrido un error al hacer split de la lista de proveedores: " + \
                 str(e)
@@ -2166,14 +2208,19 @@ class AddSolicitud(APIView):
         # Notificacion a los usuarios
         titles = 'Solicitud Recibida del servicio '+solicitud.servicio.nombre
         bodys = '¡Dale un vistazo!'
-        
+        # devices = FCMDevice.objects.filter(active=True,user__groups__name='Proveedor')
+        # devices = FCMDevice.objects.filter(user__groups__name='Proveedor')
+        # devices.send_message(
+        #     data = {"ruta": "Carrito", "descripcion": "Se ha recibido una solicitud del siguiente servicio: " +solicitud.servicio.nombre},
+        #     title=titles,
+        #     body=bodys,
+        # )
         print("Proveedores:",proveedores_id)
         for proveedor in proveedores_id:
             # Intenta obtener un Objeto Proveedor en la base de datos.
             try:
                 prov = Proveedor.objects.get(id=proveedor)
             except Exception as e:
-                print("error en obtener proveedor prov")
                 solicitud.delete()
                 data['message'] = "Ha ocurrido un error al obtener un objeto Proveedor de la base de datos: " + \
                     str(e)
@@ -2185,40 +2232,51 @@ class AddSolicitud(APIView):
                 envio_interesados = Envio_Interesados.objects.create(
                     solicitud=solicitud, proveedor=prov)
             except Exception as e:
-                print("error en envio interesados")
-                envio_interesados.delete()
                 solicitud.delete()
+                envio_interesados.delete()
                 data['message'] = "Ha ocurrido un error al crear el objeto Envio_Interesados: " + \
                     str(e)
                 data['success'] = False
                 return Response(data)
 
             # Intenta mandar una notificacion al proveedor con el id.
-            print("nit",prov.user_datos.user.id)
-            try:           
-                # Filtra los dispositivos asociados al usuario
-                devices = FCMDevice.objects.filter(user__id=prov.user_datos.user.id)
-                #if not devices.exists():
-                 #   raise Exception("No hay dispositivos registrados para este usuario.")
-                
-                data_me={"ruta": "/main/home",
-                        "descripcion": "Se ha recibido una solicitud del siguiente servicio: " + solicitud.servicio.nombre}
+            # Filtra los dispositivos por el ID del usuario
+            devices = FCMDevice.objects.filter(user__id=prov.user_datos.user.id)
 
-                notification = Notification(
-                    title=titles,
-                    body=bodys,
-                    image=solicitud.foto_descripcion if solicitud.foto_descripcion else None,
-                )
-
-                # Envía el mensaje a cada dispositivo
-                for device in devices:
-                    device.send_message(
-                        Message(data=data_me, notification=notification)
+            # Obtiene la lista de registration_ids (tokens)
+            tokend = devices.values_list('registration_id', flat=True)
+            
+            try:
+                # Verifica que haya tokens para enviar
+                if tokend:
+                    # Construir el mensaje
+                    message = messaging.MulticastMessage(
+                        notification=messaging.Notification(
+                            title=titles,
+                            body=bodys,
+                        ),
+                        data={
+                            "ruta": "/main/home",
+                            "descripcion": "Se ha recibido una solicitud de servicio.",
+                        },
+                        tokens=list(tokend),  # Convertir a lista
                     )
 
+                    # Enviar la notificación
+                    response = messaging.send_multicast(message)
+
+                    if response.success_count > 0:
+                        data['message'] = f'Se enviaron {response.success_count} mensajes.'
+                        data['success'] = True
+                    else:
+                        data['message'] = 'No se lograron enviar mensajes.'
+                        data['success'] = False
+                
+                else:
+                    data['message'] = 'No hay dispositivos registrados para enviar la notificación.'
+                    data['success'] = False
+                    
             except Exception as e:
-                print("error en noti")
-                print(f"Dispositivos para el usuario {prov.user_datos.user.id}")
                 envio_interesados.delete()
                 solicitud.delete()
                 data['message'] = "Ha ocurrido un error al enviar la notificacion al proveedor: " + \
@@ -2545,21 +2603,25 @@ class Proveedores_Details(APIView):
             # devices = FCMDevice.objects.filter(user__id= proveedorActual.user_datos.user.id)
             devices = FCMDevice.objects.filter(
                 user__id=proveedorActual.user_datos.user.id)
+            # Obtiene la lista de registration_ids (tokens)
+            tokend = devices.values_list('registration_id', flat=True)
+            
             dataMensaje["ruta"] = "/perfil"
             dataMensaje["descripcion"] = "¡Su solicitud de agregar profesión fue aceptada!"
-
-            titles="Tienes una Nueva Profesión: "+profesion,
-            bodys="¡Dale un vistazo!",
-
-            notification = Notification(
-                        title=titles,
-                        body=bodys,
-            )
-                    
-            devices.send_message(
-                Message(data=dataMensaje, notification=notification)
-            )
             
+            # Construir el mensaje
+            message = messaging.MulticastMessage(
+                notification=messaging.Notification(
+                title="Tienes una Nueva Profesión: "+profesion,
+                body="¡Dale un vistazo!"
+                ),
+                data=dataMensaje,
+                        tokens=list(tokend),  # Convertir a lista
+            )
+
+            # Enviar la notificación
+            messaging.send_multicast(message)
+
             data["error"] = "Sin Errores"
             return Response(data)
         except:
@@ -3506,20 +3568,16 @@ class Proveedor_Profesiones(APIView):
             # Notificacion al proveedor con el correo en especifico
             devices = FCMDevice.objects.filter(
                 active=True, user__username=user)
+            # Obtiene la lista de registration_ids (tokens)
+            tokend = devices.values_list('registration_id', flat=True)
             
-            titles="Tienes una Nueva Profesión: "+profesion,
-            bodys="¡Dale un vistazo!",
-            
-            notification = Notification(
-                        title=titles,
-                        body=bodys,
+            message = messaging.MulticastMessage(
+                        notification=messaging.Notification(
+                            title="Tienes una Nueva Profesión: "+profesion,
+                            body="¡Dale un vistazo!",
+                        ),
+                        tokens=list(tokend),  # Convertir a lista
             )
-                    
-            devices.send_message(
-                Message(data=data, notification=notification)
-            )
-            
-            
             data['success'] = True
             data['message'] = 'Se ha creado la tabla Profesion_Proveedor y se ha registrado en la base de datos correctamente.'
             data['profesion_proveedor'] = serializer.data
@@ -3612,36 +3670,35 @@ class Envio(APIView):
                 bodys = '¡Dale un vistazo!'
                 devices = FCMDevice.objects.filter(
                     active=True, user__username=solicitante.user_datos.user.email)
-                
-                data_me={"ruta": "/historial",
-                          "descripcion": "Ha cambiado el precio del siguiente servicio: " + solicitud.servicio.nombre},
-                notification = Notification(
+                tokend = devices.values_list('registration_id', flat=True)
+            
+                message = messaging.MulticastMessage(
+                        notification=messaging.Notification(
                             title=titles,
                             body=bodys,
+                        ),
+                        data={"ruta": "/historial",
+                          "descripcion": "Ha cambiado el precio del siguiente servicio: " + solicitud.servicio.nombre},
+                        tokens=list(tokend),  # Convertir a lista
                 )
-                        
-                devices.send_message(
-                    Message(data=data_me, notification=notification)
-                )
-
+                messaging.send_multicast(message)
             else:
                 titles = 'Tienes una nueva oferta en el servicio de ' + \
                     solicitud.servicio.nombre + ' que solicitaste.'
                 bodys = '¡Dale un vistazo!'
                 devices = FCMDevice.objects.filter(
                     active=True, user__username=solicitante.user_datos.user.email)
-                
-                data_me={"ruta": "/historial",
-                          "descripcion": "Ha recibido una oferta en el siguiente servicio: " + solicitud.servicio.nombre},
 
-                notification = Notification(
+                message = messaging.MulticastMessage(
+                        notification=messaging.Notification(
                             title=titles,
                             body=bodys,
+                        ),
+                        data={"ruta": "/historial",
+                          "descripcion": "Ha recibido una oferta en el siguiente servicio: " + solicitud.servicio.nombre},
+                        tokens=list(tokend),  # Convertir a lista
                 )
-                        
-                devices.send_message(
-                    Message(data=data_me, notification=notification)
-                )
+                messaging.send_multicast(message)
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -3674,17 +3731,21 @@ class Notificacion_Chat(APIView):
         else:
             ruta = "/main/chat"
         devices = FCMDevice.objects.filter(user=user)
+        # Obtiene la lista de registration_ids (tokens)
+        tokend = devices.values_list('registration_id', flat=True)
         
-        data_me={"url": url, "ruta": ruta,
-                  "descripcion": "Tiene un Mensaje nuevo"}
-        notification = Notification(
-            title=title,
-            body=body,
+        message = messaging.MulticastMessage(
+                        notification=messaging.Notification(
+                            title=title,
+                            body=body,
+                        ),
+                        data={"url": url, "ruta": ruta,
+                  "descripcion": "Tiene un Mensaje nuevo"},
+                        tokens=list(tokend),  # Convertir a lista
+        
         )
-                        
-        devices.send_message(
-            Message(data=data_me, notification=notification)
-        )
+        messaging.send_multicast(message)
+           
         return Response(user)
 
 
@@ -3698,18 +3759,20 @@ class Notificacion_Chat_Proveedor(APIView):
         bodys = request.data.get("message")
         devices = FCMDevice.objects.filter(
             active=True, user__username=solicitante.user_datos.user.email)
-
-        data_me={"ruta": "/main/chat",
-                  "descripcion": "Tiene un Mensaje nuevo"},
-
-        notification = Notification(
-            title=titles,
-            body=bodys,
+        tokend = devices.values_list('registration_id', flat=True)
+        
+        message = messaging.MulticastMessage(
+                        notification=messaging.Notification(
+                            title=titles,
+                            body=bodys,
+                        ),
+                        data={"ruta": "/main/chat",
+                            "descripcion": "Tiene un Mensaje nuevo"},
+                        tokens=list(tokend),  # Convertir a lista
+        
         )
-                        
-        devices.send_message(
-            Message(data=data_me, notification=notification)
-        )
+        messaging.send_multicast(message)
+        
         return Response(getUsuario)
 
 
@@ -3719,15 +3782,19 @@ class Notificacion_General(APIView):
         user = request.data.get("user")
         title = request.data.get("title")
         devices = FCMDevice.objects.filter(user__username=user)
-        data_me={"ruta": "Historial", "descripcion": "Proveedor Interesado"},
-        notification = Notification(
-            title=title,
-            body=body,
+        tokend = devices.values_list('registration_id', flat=True)
+        
+        message = messaging.MulticastMessage(
+                        notification=messaging.Notification(
+                            title=title,
+                            body=body,
+                        ),
+                        data={"ruta": "Historial", "descripcion": "Proveedor Interesado"},
+                        tokens=list(tokend),  # Convertir a lista
+        
         )
-                        
-        devices.send_message(
-            Message(data=data_me, notification=notification)
-        )
+        messaging.send_multicast(message)
+        
         return Response(user)
 
 #! Paginar
@@ -4251,15 +4318,18 @@ class Notificaciones(APIView, MyPaginationMixin):
         dataNot["descripcion"] = descripcion
         try:
             devices = FCMDevice.objects.filter(active=True)
-
-            notification = Notification(
-                title=titles,
-                body=descripcion,
+            tokend = devices.values_list('registration_id', flat=True)
+            
+            message = messaging.MulticastMessage(
+                notification=messaging.Notification(
+                    title=titles,
+                    body=descripcion,
+                ),
+                data=dataNot,
+                tokens=list(tokend),  
+        
             )
-                        
-            devices.send_message(
-                Message(data=dataNot, notification=notification)
-            )
+            messaging.send_multicast(message)           
             
             data['success'] = True
             data['message'] = "La notificación ha sido creada correctamente."
@@ -4378,18 +4448,19 @@ class Promociones(APIView):
                 bodys = promocion.descripcion
                 devices = FCMDevice.objects.filter(
                     active=True, user__groups__name='Solicitante')
-                
-                data_me={"ruta": "Home",
+                tokend = devices.values_list('registration_id', flat=True)
+            
+                message = messaging.MulticastMessage(
+                    notification=messaging.Notification(
+                        title=titles,
+                        body=bodys,
+                    ),
+                    data={"ruta": "Home",
                           "descripcion": "Se ha creado una nueva promoción"},
-
-                notification = Notification(
-                            title=titles,
-                            body=bodys,
+                    tokens=list(tokend),  
+            
                 )
-                        
-                devices.send_message(
-                    Message(data=data_me, notification=notification)
-                )
+                messaging.send_multicast(message)    
 
                 data['success'] = True
                 data['msg'] = "La promoción se ha creado exitosamente"
@@ -4538,19 +4609,19 @@ class Cupones(APIView):
                 bodys = cupon.descripcion
                 devices = FCMDevice.objects.filter(
                     active=True, user__groups__name="Solicitante")
-                
-                data_me={"ruta": "/promociones",
+                tokend = devices.values_list('registration_id', flat=True)
+            
+                message = messaging.MulticastMessage(
+                    notification=messaging.Notification(
+                        title=titles,
+                        body=bodys,
+                    ),
+                    data={"ruta": "/promociones",
                           "descripcion": "Se encuentra disponible un nuevo cupón!"},
-
-                
-                notification = Notification(
-                            title=titles,
-                            body=bodys,
+                    tokens=list(tokend),  
+            
                 )
-                        
-                devices.send_message(
-                    Message(data=data_me, notification=notification)
-                )
+                messaging.send_multicast(message)  
 
                 data['success'] = True
                 data['msg'] = "El cupon se ha creado exitosamente"
@@ -4741,18 +4812,20 @@ class PagosTarjeta(APIView):
                 bodys = '¡Dale un vistazo!'
                 devices = FCMDevice.objects.filter(
                     active=True, user__username=solicitud.proveedor.user_datos.user.email)
-                
-                data_me={"ruta": "/historial", "descripcion": "El pago por el servicio de " +
-                          solicitud.servicio.nombre + " fue existoso"}
-                
-                notification = Notification(
-                            title=titles,
-                            body=bodys,
+                tokend = devices.values_list('registration_id', flat=True)
+            
+                message = messaging.MulticastMessage(
+                    notification=messaging.Notification(
+                        title=titles,
+                        body=bodys,
+                    ),
+                    data={"ruta": "/historial", "descripcion": "El pago por el servicio de " +
+                          solicitud.servicio.nombre + " fue existoso"},
+                    tokens=list(tokend),  
+            
                 )
-                        
-                devices.send_message(
-                    Message(data=data_me, notification=notification)
-                )
+                messaging.send_multicast(message)  
+
                 return Response(data)
 
 
@@ -4807,17 +4880,20 @@ class PagosEfectivo(APIView):
                 bodys = '¡Dale un vistazo!'
                 devices = FCMDevice.objects.filter(
                     active=True, user__id=solicitud.proveedor.user_datos.user.id)
-                data_me = {"ruta": "/historial", "descripcion": "El pago por el servicio de " +
+                tokend = devices.values_list('registration_id', flat=True)
+            
+                message = messaging.MulticastMessage(
+                    notification=messaging.Notification(
+                        title=titles,
+                        body=bodys,
+                    ),
+                    data={"ruta": "/historial", "descripcion": "El pago por el servicio de " +
                           solicitud.servicio.nombre + " fue existoso"},
+                    tokens=list(tokend),  
+            
+                )
+                messaging.send_multicast(message)  
 
-                notification = Notification(
-                            title=titles,
-                            body=bodys,
-                )
-                        
-                devices.send_message(
-                    Message(data=data_me, notification=notification)
-                )
                 return Response(data)
 
 
@@ -5506,15 +5582,19 @@ class SendNotificacion(APIView):
         dataNot["descripcion"] = descripcion
         try:
             devices = FCMDevice.objects.filter(active=True)
-
-            notification = Notification(
-                            title=titles,
-                            body=descripcion,
+            tokend = devices.values_list('registration_id', flat=True)
+            
+            message = messaging.MulticastMessage(
+                notification=messaging.Notification(
+                        title=titles,
+                        body=descripcion,
+                ),
+                data=dataNot,
+                tokens=list(tokend),  
+            
             )
-                        
-            devices.send_message(
-                    Message(data=dataNot, notification=notification)
-            )
+            messaging.send_multicast(message)  
+            
             data['success'] = True
             data['message'] = "La notificación ha sido creada correctamente."
             serializer = NotificacionMasivaSerializer(notificacion)
@@ -5572,64 +5652,6 @@ class SendNotificacion_Details(APIView):
         noti.save()
         return Response(status=status.HTTP_200_OK)
 
-class SendNotificacion_Auto(APIView):
-    def post(self, request, id=None):
-        try:
-            # Obtener la notificación por su ID
-            notificacion = NotificacionMasiva.objects.get(pk=id)
-            tipo_proveedores = notificacion.tipo_proveedores  # Asumiendo que este campo existe en el modelo
-            frecuencia = notificacion.frecuencia
-            hora = notificacion.hora
-            print("tipo",tipo_proveedores)
-            # Construir el contenido de la notificación
-            subject = notificacion.titulo
-            message = notificacion.descripcion
-            dataNot = {
-                "titulo": notificacion.titulo,
-                "descripcion": notificacion.descripcion,
-                "ruta": notificacion.ruta,
-            }
-
-            # Filtrar los dispositivos según el tipo de proveedores
-            devices = FCMDevice.objects.filter(active=True)
-            if tipo_proveedores:
-                devices = devices.filter(user__tipo_proveedor=tipo_proveedores)  # Ajusta según tu modelo de usuario
-
-            # Enviar notificación a los dispositivos filtrados
-            try:
-                notification = Notification(
-                            title=subject,
-                            body=message,
-                )
-                for device in devices:
-                    device.send_message(
-                        Message(data=dataNot, notification=notification)
-                    )
-
-            except Exception as e:
-                return Response({
-                    "success": False,
-                    "message": f"Error al enviar la notificación por Firebase: {str(e)}"
-                }, status=500)
-
-            # Respuesta exitosa
-            serializer = NotificacionMasivaSerializer(notificacion)
-            return Response({
-                "success": True,
-                "message": "La notificación fue enviada exitosamente por Firebase.",
-                "notificacion_masiva": serializer.data
-            })
-
-        except NotificacionMasiva.DoesNotExist:
-            return Response({
-                "success": False,
-                "message": "No se encontró la notificación con el ID proporcionado."
-            }, status=404)
-        except Exception as e:
-            return Response({
-                "success": False,
-                "message": f"Hubo un error al procesar la solicitud: {str(e)}"
-            }, status=500)
 
 class RolesPermisos(APIView):
 

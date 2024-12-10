@@ -209,7 +209,6 @@ urlpatterns += [
     path('notificacion-anuncio/', SendNotificacion.as_view()),
     path('notificacion-anuncio/<str:id>', SendNotificacion.as_view(), name='notificacion-anuncio-detail'),
     path('notificacion-anuncio-estado/', SendNotificacion_Details.as_view()),
-    path('notificacion-anuncio/<int:id>/envio/', SendNotificacion_Auto.as_view(), name='notificacion-anuncio-envio'),
     path('roles-permisos/', RolesPermisos.as_view()),
     path('roles-permisos/<str:id>', RolesPermisos.as_view()),
     path('obtener-proveedor/<str:pk>', Get_Proveedor.as_view()),
