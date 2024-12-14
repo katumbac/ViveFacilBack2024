@@ -1,8 +1,0 @@
-Django==3.1.14
-django_allauth==0.52.0
-django_rest_auth==0.9.5
-djangorestframework==3.14.0
-fcm_django==0.3.7
-protobuf==4.22.1
-pyfcm==1.4.9
-requests==2.22.0
