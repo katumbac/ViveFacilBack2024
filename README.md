@@ -50,10 +50,10 @@ git clone <url del repositorio>
 .\nombre_del_entorno\Scripts\Activate
 ```
 
-5.	Una vez activado el entorno virtual, los paquetes que se requieren ya se encuentran en el repositorio, estos se encuentran en el repo arch.txt. Para instalar estos paquetes en nuestro entorno virtual usamos el siguiente comando:
+5.	Una vez activado el entorno virtual, los paquetes que se requieren ya se encuentran en el repositorio, estos se encuentran en el repo requirementsAct24.txt Para instalar estos paquetes en nuestro entorno virtual usamos el siguiente comando:
 
 ```markdown
-pip install -r nombredelarchivo.txt
+pip install -r requirementsAct24.txt
 ```
 
 
