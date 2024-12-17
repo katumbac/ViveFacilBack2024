@@ -36,7 +36,7 @@ from urllib3.util.retry import Retry
 from django.template.loader import get_template
 from fcm_django.models import FCMDevice
 from pyfcm import FCMNotification
-# from firebase_admin.messaging import Message, Notification
+from firebase_admin.messaging import Message, Notification
 from django.db.models import Q
 from datetime import date, timedelta, datetime
 from base64 import b64encode
@@ -60,6 +60,53 @@ import codecs
 import pytz
 from firebase_admin import messaging
 from firebase_admin.exceptions import FirebaseError
+from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
+from TomeSoft_1.settings import ACCESS_URL
+
+@csrf_exempt
+def send_notificationF(tokend, title,body,data):
+    try:
+        # Verifica si el token está disponible
+        if not settings.FIREBASE_ACCESS_TOKEN:
+            return JsonResponse({"error": "No se pudo obtener el token de Firebase"}, status=500)
+
+        # Recorrer cada token en la lista
+        responses = []  # Almacena las respuestas de Firebase
+        for token in tokend:
+            # Cuerpo de la notificación
+            message = {
+                "message": {
+                    "token": token,  
+                    "notification": {
+                        "title": title,
+                        "body": body
+                    },
+                    "data": data
+                }
+            }
+
+            # Envía la petición POST a FCM
+            response = requests.post(
+                settings.ACCESS_URL,
+                json=message,
+                headers={
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {settings.FIREBASE_ACCESS_TOKEN}'
+                }
+            )
+
+            # Guarda la respuesta
+            responses.append({
+                "token": token,
+                "status_code": response.status_code,
+                "response": response.json() if response.status_code == 200 else response.text
+            })
+
+        # Devuelve todas las respuestas
+        return JsonResponse({"message": "Notificaciones enviadas", "results": responses}, safe=False)
+    except Exception as e:
+        return JsonResponse({"error": "Error en el servidor", "details": str(e)}, status=500)
 
 class CardsAuth(APIView):
 
@@ -665,33 +712,11 @@ class Categorias(APIView):
                 devices = FCMDevice.objects.filter(
                     active=True, user__groups__name="Solicitante")
                 tokend = devices.values_list('registration_id', flat=True)
+                tokens=list(tokend)
+                
                 
                 if tokend:
-                    # Construir el mensaje
-                    message = messaging.MulticastMessage(
-                        notification=messaging.Notification(
-                            title=titles,
-                            body=bodys,
-                        ),
-                        data=dataMensaje,
-                        tokens=list(tokend),  # Convertir a lista
-                    )
-
-                    try:
-                        # Enviar la notificación
-                        response = messaging.send_multicast(message)
-
-                        if response.success_count > 0:
-                            print(f"Se enviaron {response.success_count} mensajes.")
-                        else:
-                            print(f"No se lograron enviar mensajes.")
-                            for idx, result in enumerate(response.responses):
-                                if not result.success:
-                                    print(f"Token inválido: {tokend[idx]}")                 
-                    except FirebaseError as e:                       
-                        if 'UNREGISTERED' in str(e):
-                            print("Token inválido, eliminar de la base de datos.")
-                
+                    send_notificationF(tokens,titles,bodys,dataMensaje) 
                 else:
                     dataMensaje['message'] = 'No hay dispositivos registrados para enviar la notificación.'
                     dataMensaje['success'] = False
@@ -716,31 +741,9 @@ class Categorias(APIView):
         # Notificacion a los usuarios
         titles = "Categoría Eliminada: "+categoria.nombre
         bodys = "¡Sorry, no podrás acceder a la categoría!"
+        tokens=list(tokend),  # Convertir a lista
         if tokend:
-            # Construir el mensaje
-            message = messaging.MulticastMessage(
-                notification=messaging.Notification(
-                title=titles,
-                body=bodys,
-                ),
-                data=dataMensaje,
-                tokens=list(tokend),  # Convertir a lista
-            )
-
-            # Enviar la notificación
-            try:
-                response = messaging.send_multicast(message)
-
-                if response.success_count > 0:
-                    print(f"Se enviaron {response.success_count} mensajes.")
-                else:
-                    print(f"No se lograron enviar mensajes.")
-                    for idx, result in enumerate(response.responses):
-                        if not result.success:
-                            print(f"Token inválido: {tokend[idx]}")                 
-            except FirebaseError as e:                       
-                if 'UNREGISTERED' in str(e):
-                    print("Token inválido, eliminar de la base de datos.")
+            send_notificationF(tokens,titles,bodys,dataMensaje) 
                     
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -764,32 +767,9 @@ class Categorias(APIView):
         bodys="¡Dale un vistazo!"  
         data["ruta"] = "/main-tabs/home"
         data["descripcion"] = "Vive Fácil cuenta con una nueva Categoría llamada " + categoria_creada.nombre
-            
+        tokens=list(tokend),  
         if tokend:
-            # Construir el mensaje
-            message = messaging.MulticastMessage(
-                notification=messaging.Notification(
-                title=titles,
-                body=bodys,
-                ),
-                data=data,
-                tokens=list(tokend),  # Convertir a lista
-            )
-
-            try:
-                # Enviar la notificación
-                response = messaging.send_multicast(message)
-
-                if response.success_count > 0:
-                    print(f"Se enviaron {response.success_count} mensajes.")
-                else:
-                    print(f"No se lograron enviar mensajes.")
-                    for idx, result in enumerate(response.responses):
-                        if not result.success:
-                                    print(f"Token inválido: {tokend[idx]}")                 
-            except FirebaseError as e:                       
-                if 'UNREGISTERED' in str(e):
-                    print("Token inválido, eliminar de la base de datos.")
+            send_notificationF(tokens,titles,bodys,data) 
 
         data['categoria'] = serializer.data
         if categoria_creada:
@@ -841,40 +821,14 @@ class Servicios(APIView):
         devices = FCMDevice.objects.filter(
             active=True, user__groups__name='Solicitante')
         tokend = devices.values_list('registration_id', flat=True)
-        
+        tokens=list(tokend)
         titles="Servicio Eliminado: " + nombreServico
         bodys="¡Sorry, no podrás acceder al Servicio!"
         data["ruta"] = "/main-tabs/home"
         data["descripcion"] = "El servicio " + nombreServico + " se ha eliminado de nuestro aplicativo"
         # Verifica que haya tokens para enviar
         if tokend:
-            # Construir el mensaje
-            message = messaging.MulticastMessage(
-                        notification=messaging.Notification(
-                            title=titles,
-                            body=bodys,
-                        ),
-                        data={
-                            "ruta": "/main/home",
-                            "descripcion": "Se ha recibido una solicitud de servicio.",
-                        },
-                        tokens=list(tokend),  # Convertir a lista
-            )
-
-            # Enviar la notificación
-            try:
-                response = messaging.send_multicast(message)
-
-                if response.success_count > 0:
-                    print(f"Se enviaron {response.success_count} mensajes.")
-                else:
-                    print(f"No se lograron enviar mensajes.")
-                    for idx, result in enumerate(response.responses):
-                        if not result.success:
-                                    print(f"Token inválido: {tokend[idx]}")                 
-            except FirebaseError as e:                       
-                if 'UNREGISTERED' in str(e):
-                    print("Token inválido, eliminar de la base de datos.")
+            send_notificationF(tokens,titles,bodys,data) 
             
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -902,36 +856,15 @@ class Servicios(APIView):
             devices = FCMDevice.objects.filter(
                  active=True, user__groups__name="Solicitante")
             tokend = devices.values_list('registration_id', flat=True)
-            
+            tokens=list(tokend)
             titles="Nuevo Servicio: "+nombre,
             bodys="¡Dale un vistazo!",
+            data={
+                  "ruta": "/main-tabs/home",
+                  "descripcion": "El servicio " + nombre + " se ha agregado a nuestro aplicativo",
+            },
 
-            message = messaging.MulticastMessage(
-                        notification=messaging.Notification(
-                            title=titles,
-                            body=bodys,
-                        ),
-                        data={
-                            "ruta": "/main-tabs/home",
-                            "descripcion": "El servicio " + nombre + " se ha agregado a nuestro aplicativo",
-                        },
-                        tokens=list(tokend),  # Convertir a lista
-            )
-
-            try:
-                # Enviar la notificación
-                response = messaging.send_multicast(message)
-
-                if response.success_count > 0:
-                    print(f"Se enviaron {response.success_count} mensajes.")
-                else:
-                    print(f"No se lograron enviar mensajes.")
-                    for idx, result in enumerate(response.responses):
-                        if not result.success:
-                                    print(f"Token inválido: {tokend[idx]}")                 
-            except FirebaseError as e:                       
-                if 'UNREGISTERED' in str(e):
-                    print("Token inválido, eliminar de la base de datos.")
+            send_notificationF(tokens,titles,bodys,data) 
 
             return Response(data)
 
@@ -1893,32 +1826,12 @@ class AdjudicarSolicitud(APIView):
                 devices = FCMDevice.objects.filter(
                     active=True, user__id=proveedor.user_datos.user.id)
                 tokend = devices.values_list('registration_id', flat=True)
-            
-                # Construir el mensaje
-                message = messaging.MulticastMessage(
-                        notification=messaging.Notification(
-                            title=titles,
-                            body=bodys,
-                        ),
-                        data={"ruta": "/historial",
-                          "descripcion": "Se le ha adjudicado el siguiente servicio: " + solicitud.servicio.nombre},
-                        tokens=list(tokend),  # Convertir a lista
-                )
+                tokens=list(tokend) 
+                data = {"ruta": "/historial",
+                          "descripcion": "Se le ha adjudicado el siguiente servicio: " + solicitud.servicio.nombre}
 
-                try:
-                    # Enviar la notificación
-                    response = messaging.send_multicast(message)
+                send_notificationF(tokens,titles,bodys,data) 
 
-                    if response.success_count > 0:
-                        print(f"Se enviaron {response.success_count} mensajes.")
-                    else:
-                        print(f"No se lograron enviar mensajes.")
-                        for idx, result in enumerate(response.responses):
-                            if not result.success:
-                                        print(f"Token inválido: {tokend[idx]}")                 
-                except FirebaseError as e:                       
-                    if 'UNREGISTERED' in str(e):
-                        print("Token inválido, eliminar de la base de datos.")
 
                 data['message'] = 'Solicitud adjudicada exitosamente!.'
                 data['success'] = True
@@ -2155,31 +2068,11 @@ class Solicituds(APIView):
                     
                     # Obtiene la lista de registration_ids (tokens)
                     tokend = devices.values_list('registration_id', flat=True)
-            
-                    message = messaging.MulticastMessage(
-                        notification=messaging.Notification(
-                            title=titles,
-                            body=bodys,
-                        ),
-                        data={"ruta": "/historial", "descripcion": "Puede observar la solicitud " +
-                              solicitud.servicio.nombre + " finalizada en la seccion de Historial > PASADAS"},
-                        tokens=list(tokend),  # Convertir a lista
-                    )
+                    data={"ruta": "/historial", "descripcion": "Puede observar la solicitud " +
+                              solicitud.servicio.nombre + " finalizada en la seccion de Historial > PASADAS"}
+                    tokens=list(tokend)
+                    send_notificationF(tokens,titles,bodys,data) 
 
-                    try:
-                        # Enviar la notificación
-                        response = messaging.send_multicast(message)
-
-                        if response.success_count > 0:
-                            print(f"Se enviaron {response.success_count} mensajes.")
-                        else:
-                            print(f"No se lograron enviar mensajes.")
-                            for idx, result in enumerate(response.responses):
-                                if not result.success:
-                                            print(f"Token inválido: {tokend[idx]}")                 
-                    except FirebaseError as e:                       
-                        if 'UNREGISTERED' in str(e):
-                            print("Token inválido, eliminar de la base de datos.")
 
                 data['message'] = 'Solicitud actualizada exitosamente!.'
                 data['success'] = True
@@ -2284,16 +2177,13 @@ class AddSolicitud(APIView):
             data['success'] = False
             return Response(data)
 
-        # Notificacion a los usuarios
+        # Notificacion a los usuarios 
         titles = 'Solicitud Recibida del servicio '+solicitud.servicio.nombre
         bodys = '¡Dale un vistazo!'
-        # devices = FCMDevice.objects.filter(active=True,user__groups__name='Proveedor')
-        # devices = FCMDevice.objects.filter(user__groups__name='Proveedor')
-        # devices.send_message(
-        #     data = {"ruta": "Carrito", "descripcion": "Se ha recibido una solicitud del siguiente servicio: " +solicitud.servicio.nombre},
-        #     title=titles,
-        #     body=bodys,
-        # )
+        data={
+                        "ruta": "/main/home",
+                        "descripcion": "Se ha recibido una solicitud de servicio."
+                    }
         print("Proveedores:", proveedores_id)
 
         for proveedor in proveedores_id:
@@ -2331,41 +2221,9 @@ class AddSolicitud(APIView):
 
             print(f"Tokens encontrados para el proveedor {proveedor}: {tokend}")
             try:
-                if tokend:
-                    # Construir el mensaje
-                    message = messaging.MulticastMessage(
-                        notification=messaging.Notification(
-                            title=titles,
-                            body=bodys,
-                        ),
-                        data={
-                            "ruta": "/main/home",
-                            "descripcion": "Se ha recibido una solicitud de servicio.",
-                        },
-                        tokens=list(tokend),  # Convertir a lista
-                    )
-                    # Intenta enviar la notificación
-                    try:
-                        # Enviar la notificación
-                        response = messaging.send_multicast(message)
-
-                        if response.success_count > 0:
-                            print(f"Se enviaron {response.success_count} mensajes.")
-                        else:
-                            print(f"No se lograron enviar mensajes.")
-                            for idx, result in enumerate(response.responses):
-                                if not result.success:
-                                    print(f"Token inválido: {tokend[idx]}")                 
-                    except FirebaseError as e:                       
-                        if 'UNREGISTERED' in str(e):
-                            print("Token inválido, eliminar de la base de datos.")
-
-
-                else:
-                    print(f"No hay dispositivos registrados para el proveedor {proveedor}.")
-                    data['message'] = f"No hay dispositivos registrados para el proveedor {proveedor}."
-                    data['success'] = False
-
+                               
+                send_notificationF(tokend,titles,bodys,data)
+                
             except Exception as e:
                 print(f"Error al enviar notificación al proveedor {proveedor}: {e}")
                 # Realiza las eliminaciones o acciones necesarias en caso de error
@@ -2700,31 +2558,10 @@ class Proveedores_Details(APIView):
             
             dataMensaje["ruta"] = "/perfil"
             dataMensaje["descripcion"] = "¡Su solicitud de agregar profesión fue aceptada!"
-            
-            # Construir el mensaje
-            message = messaging.MulticastMessage(
-                notification=messaging.Notification(
-                title="Tienes una Nueva Profesión: "+profesion,
-                body="¡Dale un vistazo!"
-                ),
-                data=dataMensaje,
-                        tokens=list(tokend),  # Convertir a lista
-            )
-
-            try:
-                # Enviar la notificación
-                response = messaging.send_multicast(message)
-
-                if response.success_count > 0:
-                    print(f"Se enviaron {response.success_count} mensajes.")
-                else:
-                    print(f"No se lograron enviar mensajes.")
-                    for idx, result in enumerate(response.responses):
-                        if not result.success:
-                                    print(f"Token inválido: {tokend[idx]}")                 
-            except FirebaseError as e:                       
-                if 'UNREGISTERED' in str(e):
-                    print("Token inválido, eliminar de la base de datos.")
+            titles="Tienes una Nueva Profesión: "+profesion
+            bodys="¡Dale un vistazo!"
+            tokens=list(tokend)
+            send_notificationF(tokens,titles,bodys,data) 
 
             data["error"] = "Sin Errores"
             return Response(data)
@@ -3674,14 +3511,11 @@ class Proveedor_Profesiones(APIView):
                 active=True, user__username=user)
             # Obtiene la lista de registration_ids (tokens)
             tokend = devices.values_list('registration_id', flat=True)
+            titles="Tienes una Nueva Profesión: "+profesion,
+            bodys="¡Dale un vistazo!",
+            tokens=list(tokend)
+            send_notificationF(tokens,titles,bodys,data) 
             
-            message = messaging.MulticastMessage(
-                        notification=messaging.Notification(
-                            title="Tienes una Nueva Profesión: "+profesion,
-                            body="¡Dale un vistazo!",
-                        ),
-                        tokens=list(tokend),  # Convertir a lista
-            )
             data['success'] = True
             data['message'] = 'Se ha creado la tabla Profesion_Proveedor y se ha registrado en la base de datos correctamente.'
             data['profesion_proveedor'] = serializer.data
@@ -3776,30 +3610,12 @@ class Envio(APIView):
                     active=True, user__username=solicitante.user_datos.user.email)
                 tokend = devices.values_list('registration_id', flat=True)
             
-                message = messaging.MulticastMessage(
-                        notification=messaging.Notification(
-                            title=titles,
-                            body=bodys,
-                        ),
-                        data={"ruta": "/historial",
-                          "descripcion": "Ha cambiado el precio del siguiente servicio: " + solicitud.servicio.nombre},
-                        tokens=list(tokend),  # Convertir a lista
-                )
+                data={"ruta": "/historial",
+                          "descripcion": "Ha cambiado el precio del siguiente servicio: " + solicitud.servicio.nombre}
                 
-                try:
-                    # Enviar la notificación
-                    response = messaging.send_multicast(message)
-
-                    if response.success_count > 0:
-                        print(f"Se enviaron {response.success_count} mensajes.")
-                    else:
-                        print(f"No se lograron enviar mensajes.")
-                        for idx, result in enumerate(response.responses):
-                            if not result.success:
-                                        print(f"Token inválido: {tokend[idx]}")                 
-                except FirebaseError as e:                       
-                    if 'UNREGISTERED' in str(e):
-                        print("Token inválido, eliminar de la base de datos.")
+                tokens=list(tokend)
+                send_notificationF(tokens,titles,bodys,data) 
+            
             else:
                 titles = 'Tienes una nueva oferta en el servicio de ' + \
                     solicitud.servicio.nombre + ' que solicitaste.'
@@ -3851,9 +3667,9 @@ class Envio(APIView):
 class Notificacion_Chat(APIView):
     def post(self, request, format=None):
         remitente = request.data.get("remitente")
-        title = 'Nuevo Mensaje de ' + str(remitente)
+        titles = 'Nuevo Mensaje de ' + str(remitente)
         isSolicitante = request.data.get("isSolicitante")
-        body = request.data.get("message")
+        bodys = request.data.get("message")
         user = request.data.get("user")
         url = request.data.get("url")
         ruta = ""
@@ -3865,30 +3681,10 @@ class Notificacion_Chat(APIView):
         # Obtiene la lista de registration_ids (tokens)
         tokend = devices.values_list('registration_id', flat=True)
         
-        message = messaging.MulticastMessage(
-                        notification=messaging.Notification(
-                            title=title,
-                            body=body,
-                        ),
-                        data={"url": url, "ruta": ruta,
-                  "descripcion": "Tiene un Mensaje nuevo"},
-                        tokens=list(tokend),  # Convertir a lista
-        
-        )
-        try:
-            # Enviar la notificación
-            response = messaging.send_multicast(message)
-
-            if response.success_count > 0:
-                print(f"Se enviaron {response.success_count} mensajes.")
-            else:
-                print(f"No se lograron enviar mensajes.")
-                for idx, result in enumerate(response.responses):
-                    if not result.success:
-                        print(f"Token inválido: {tokend[idx]}")                 
-        except FirebaseError as e:                       
-            if 'UNREGISTERED' in str(e):
-                print("Token inválido, eliminar de la base de datos.")
+        data={"url": url, "ruta": ruta,
+                  "descripcion": "Tiene un Mensaje nuevo"}
+        tokens=list(tokend)
+        send_notificationF(tokens,titles,bodys,data) 
            
         return Response(user)
 
@@ -3905,66 +3701,25 @@ class Notificacion_Chat_Proveedor(APIView):
             active=True, user__username=solicitante.user_datos.user.email)
         tokend = devices.values_list('registration_id', flat=True)
         
-        message = messaging.MulticastMessage(
-                        notification=messaging.Notification(
-                            title=titles,
-                            body=bodys,
-                        ),
-                        data={"ruta": "/main/chat",
+        data={"ruta": "/main/chat",
                             "descripcion": "Tiene un Mensaje nuevo"},
-                        tokens=list(tokend),  # Convertir a lista
-        
-        )
-        try:
-            # Enviar la notificación
-            response = messaging.send_multicast(message)
-
-            if response.success_count > 0:
-                print(f"Se enviaron {response.success_count} mensajes.")
-            else:
-                print(f"No se lograron enviar mensajes.")
-                for idx, result in enumerate(response.responses):
-                    if not result.success:
-                        
-                        print(f"Token inválido: {tokend[idx]}")                 
-        except FirebaseError as e:                       
-            if 'UNREGISTERED' in str(e):
-                print("Token inválido, eliminar de la base de datos.")
+        tokens=list(tokend)
+        send_notificationF(tokens,titles,bodys,data) 
         
         return Response(getUsuario)
 
 
 class Notificacion_General(APIView):
     def post(self, request, format=None):
-        body = request.data.get("message")
+        bodys = request.data.get("message")
         user = request.data.get("user")
-        title = request.data.get("title")
+        titles = request.data.get("title")
         devices = FCMDevice.objects.filter(user__username=user)
         tokend = devices.values_list('registration_id', flat=True)
         
-        message = messaging.MulticastMessage(
-                        notification=messaging.Notification(
-                            title=title,
-                            body=body,
-                        ),
-                        data={"ruta": "Historial", "descripcion": "Proveedor Interesado"},
-                        tokens=list(tokend),  # Convertir a lista
-        
-        )
-        try:
-                # Enviar la notificación
-            response = messaging.send_multicast(message)
-
-            if response.success_count > 0:
-                print(f"Se enviaron {response.success_count} mensajes.")
-            else:
-                print(f"No se lograron enviar mensajes.")
-                for idx, result in enumerate(response.responses):
-                    if not result.success:
-                        print(f"Token inválido: {tokend[idx]}")                 
-        except FirebaseError as e:                       
-            if 'UNREGISTERED' in str(e):
-                print("Token inválido, eliminar de la base de datos.")
+        data={"ruta": "Historial", "descripcion": "Proveedor Interesado"}
+        tokens=list(tokend)
+        send_notificationF(tokens,titles,bodys,data) 
         
         return Response(user)
 
@@ -4491,29 +4246,8 @@ class Notificaciones(APIView, MyPaginationMixin):
             devices = FCMDevice.objects.filter(active=True)
             tokend = devices.values_list('registration_id', flat=True)
             
-            message = messaging.MulticastMessage(
-                notification=messaging.Notification(
-                    title=titles,
-                    body=descripcion,
-                ),
-                data=dataNot,
-                tokens=list(tokend),  
-        
-            )
-            try:
-                # Enviar la notificación
-                response = messaging.send_multicast(message)
-
-                if response.success_count > 0:
-                    print(f"Se enviaron {response.success_count} mensajes.")
-                else:
-                    print(f"No se lograron enviar mensajes.")
-                    for idx, result in enumerate(response.responses):
-                        if not result.success:
-                                    print(f"Token inválido: {tokend[idx]}")                 
-            except FirebaseError as e:                       
-                if 'UNREGISTERED' in str(e):
-                    print("Token inválido, eliminar de la base de datos.")         
+            tokens=list(tokend)
+            send_notificationF(tokens,titles,descripcion,dataNot)    
             
             data['success'] = True
             data['message'] = "La notificación ha sido creada correctamente."
@@ -4634,30 +4368,10 @@ class Promociones(APIView):
                     active=True, user__groups__name='Solicitante')
                 tokend = devices.values_list('registration_id', flat=True)
             
-                message = messaging.MulticastMessage(
-                    notification=messaging.Notification(
-                        title=titles,
-                        body=bodys,
-                    ),
-                    data={"ruta": "Home",
-                          "descripcion": "Se ha creado una nueva promoción"},
-                    tokens=list(tokend),  
-            
-                )
-                try:
-                    # Enviar la notificación
-                    response = messaging.send_multicast(message)
-
-                    if response.success_count > 0:
-                        print(f"Se enviaron {response.success_count} mensajes.")
-                    else:
-                        print(f"No se lograron enviar mensajes.")
-                        for idx, result in enumerate(response.responses):
-                            if not result.success:
-                                        print(f"Token inválido: {tokend[idx]}")                 
-                except FirebaseError as e:                       
-                    if 'UNREGISTERED' in str(e):
-                        print("Token inválido, eliminar de la base de datos.")
+                data={"ruta": "Home",
+                          "descripcion": "Se ha creado una nueva promoción"}
+                tokens=list(tokend)
+                send_notificationF(tokens,titles,bodys,data)    
 
                 data['success'] = True
                 data['msg'] = "La promoción se ha creado exitosamente"
@@ -4808,30 +4522,10 @@ class Cupones(APIView):
                     active=True, user__groups__name="Solicitante")
                 tokend = devices.values_list('registration_id', flat=True)
             
-                message = messaging.MulticastMessage(
-                    notification=messaging.Notification(
-                        title=titles,
-                        body=bodys,
-                    ),
-                    data={"ruta": "/promociones",
-                          "descripcion": "Se encuentra disponible un nuevo cupón!"},
-                    tokens=list(tokend),  
-            
-                )
-                try:
-                    # Enviar la notificación
-                    response = messaging.send_multicast(message)
-
-                    if response.success_count > 0:
-                        print(f"Se enviaron {response.success_count} mensajes.")
-                    else:
-                        print(f"No se lograron enviar mensajes.")
-                        for idx, result in enumerate(response.responses):
-                            if not result.success:
-                                        print(f"Token inválido: {tokend[idx]}")                 
-                except FirebaseError as e:                       
-                    if 'UNREGISTERED' in str(e):
-                        print("Token inválido, eliminar de la base de datos.")
+                data={"ruta": "/promociones",
+                          "descripcion": "Se encuentra disponible un nuevo cupón!"}
+                tokens=list(tokend)
+                send_notificationF(tokens,titles,bodys,data) 
 
                 data['success'] = True
                 data['msg'] = "El cupon se ha creado exitosamente"
@@ -5024,30 +4718,10 @@ class PagosTarjeta(APIView):
                     active=True, user__username=solicitud.proveedor.user_datos.user.email)
                 tokend = devices.values_list('registration_id', flat=True)
             
-                message = messaging.MulticastMessage(
-                    notification=messaging.Notification(
-                        title=titles,
-                        body=bodys,
-                    ),
-                    data={"ruta": "/historial", "descripcion": "El pago por el servicio de " +
-                          solicitud.servicio.nombre + " fue existoso"},
-                    tokens=list(tokend),  
-            
-                )
-                try:
-                    # Enviar la notificación
-                    response = messaging.send_multicast(message)
-
-                    if response.success_count > 0:
-                        print(f"Se enviaron {response.success_count} mensajes.")
-                    else:
-                        print(f"No se lograron enviar mensajes.")
-                        for idx, result in enumerate(response.responses):
-                            if not result.success:
-                                        print(f"Token inválido: {tokend[idx]}")                 
-                except FirebaseError as e:                       
-                    if 'UNREGISTERED' in str(e):
-                        print("Token inválido, eliminar de la base de datos.")
+                data={"ruta": "/historial", "descripcion": "El pago por el servicio de " +
+                          solicitud.servicio.nombre + " fue existoso"}
+                tokens=list(tokend)
+                send_notificationF(tokens,titles,bodys,data) 
 
                 return Response(data)
 
@@ -5105,30 +4779,10 @@ class PagosEfectivo(APIView):
                     active=True, user__id=solicitud.proveedor.user_datos.user.id)
                 tokend = devices.values_list('registration_id', flat=True)
             
-                message = messaging.MulticastMessage(
-                    notification=messaging.Notification(
-                        title=titles,
-                        body=bodys,
-                    ),
-                    data={"ruta": "/historial", "descripcion": "El pago por el servicio de " +
-                          solicitud.servicio.nombre + " fue existoso"},
-                    tokens=list(tokend),  
-            
-                )
-                try:
-                    # Enviar la notificación
-                    response = messaging.send_multicast(message)
-
-                    if response.success_count > 0:
-                        print(f"Se enviaron {response.success_count} mensajes.")
-                    else:
-                        print(f"No se lograron enviar mensajes.")
-                        for idx, result in enumerate(response.responses):
-                            if not result.success:
-                                        print(f"Token inválido: {tokend[idx]}")                 
-                except FirebaseError as e:                       
-                    if 'UNREGISTERED' in str(e):
-                        print("Token inválido, eliminar de la base de datos.")
+                data={"ruta": "/historial", "descripcion": "El pago por el servicio de " +
+                          solicitud.servicio.nombre + " fue existoso"}
+                tokens=list(tokend)
+                send_notificationF(tokens,titles,bodys,data) 
 
                 return Response(data)
 
@@ -5281,10 +4935,13 @@ class Suggestions(APIView):
         categoria.delete()
         #Notificacion a los usuarios
         devices = FCMDevice.objects.filter(active=True)
+        tokend = devices.values_list('registration_id', flat=True)
         devices.send_message(
-            title="categoria Eliminada: "+categoria.nombre,
-            body="¡Sorry, no podrás acceder a la categoria!",
+            titles="categoria Eliminada: "+categoria.nombre,
+            bodys="¡Sorry, no podrás acceder a la categoria!",
         )
+        tokens=list(tokend)
+        send_notificationF(tokens,titles,bodys,data) 
         return Response(status=status.HTTP_204_NO_CONTENT)'''
 
     def post(self, request, format=None):
@@ -5819,30 +5476,9 @@ class SendNotificacion(APIView):
         try:
             devices = FCMDevice.objects.filter(active=True)
             tokend = devices.values_list('registration_id', flat=True)
-            
-            message = messaging.MulticastMessage(
-                notification=messaging.Notification(
-                        title=titles,
-                        body=descripcion,
-                ),
-                data=dataNot,
-                tokens=list(tokend),  
-            
-            )
-            try:
-                # Enviar la notificación
-                response = messaging.send_multicast(message)
+            tokens=list(tokend)
 
-                if response.success_count > 0:
-                    print(f"Se enviaron {response.success_count} mensajes.")
-                else:
-                    print(f"No se lograron enviar mensajes.")
-                    for idx, result in enumerate(response.responses):
-                        if not result.success:
-                                    print(f"Token inválido: {tokend[idx]}")                 
-            except FirebaseError as e:                       
-                if 'UNREGISTERED' in str(e):
-                    print("Token inválido, eliminar de la base de datos.")
+            send_notificationF(tokens,titles,descripcion,dataNot)
             
             data['success'] = True
             data['message'] = "La notificación ha sido creada correctamente."

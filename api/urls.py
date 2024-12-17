@@ -3,6 +3,7 @@ from django.urls import path, re_path
 from api.views import *
 from rest_framework.authtoken import views
 from rest_framework.routers import DefaultRouter
+from . import views
 router = DefaultRouter()
 router.register(r'registro',Registro)
 urlpatterns = router.urls

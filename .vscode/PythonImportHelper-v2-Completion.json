@@ -237,6 +237,14 @@
         "documentation": {}
     },
     {
+        "label": "settings",
+        "importPath": "django.conf",
+        "description": "django.conf",
+        "isExtraImport": true,
+        "detail": "django.conf",
+        "documentation": {}
+    },
+    {
         "label": "migrations",
         "importPath": "django.db",
         "description": "django.db",
@@ -3871,6 +3879,22 @@
         "documentation": {}
     },
     {
+        "label": "Message",
+        "importPath": "firebase_admin.messaging",
+        "description": "firebase_admin.messaging",
+        "isExtraImport": true,
+        "detail": "firebase_admin.messaging",
+        "documentation": {}
+    },
+    {
+        "label": "Notification",
+        "importPath": "firebase_admin.messaging",
+        "description": "firebase_admin.messaging",
+        "isExtraImport": true,
+        "detail": "firebase_admin.messaging",
+        "documentation": {}
+    },
+    {
         "label": "datetime",
         "kind": 6,
         "isExtraImport": true,
@@ -4087,6 +4111,22 @@
         "description": "firebase_admin.exceptions",
         "isExtraImport": true,
         "detail": "firebase_admin.exceptions",
+        "documentation": {}
+    },
+    {
+        "label": "csrf_exempt",
+        "importPath": "django.views.decorators.csrf",
+        "description": "django.views.decorators.csrf",
+        "isExtraImport": true,
+        "detail": "django.views.decorators.csrf",
+        "documentation": {}
+    },
+    {
+        "label": "ACCESS_URL",
+        "importPath": "TomeSoft_1.settings",
+        "description": "TomeSoft_1.settings",
+        "isExtraImport": true,
+        "detail": "TomeSoft_1.settings",
         "documentation": {}
     },
     {
@@ -7744,7 +7784,7 @@
         "kind": 6,
         "importPath": "api.views",
         "description": "api.views",
-        "peekOfCode": "class Notificacion_Chat(APIView):\n    def post(self, request, format=None):\n        remitente = request.data.get(\"remitente\")\n        title = 'Nuevo Mensaje de ' + str(remitente)\n        isSolicitante = request.data.get(\"isSolicitante\")\n        body = request.data.get(\"message\")\n        user = request.data.get(\"user\")\n        url = request.data.get(\"url\")\n        ruta = \"\"\n        if isSolicitante:",
+        "peekOfCode": "class Notificacion_Chat(APIView):\n    def post(self, request, format=None):\n        remitente = request.data.get(\"remitente\")\n        titles = 'Nuevo Mensaje de ' + str(remitente)\n        isSolicitante = request.data.get(\"isSolicitante\")\n        bodys = request.data.get(\"message\")\n        user = request.data.get(\"user\")\n        url = request.data.get(\"url\")\n        ruta = \"\"\n        if isSolicitante:",
         "detail": "api.views",
         "documentation": {}
     },
@@ -7762,7 +7802,7 @@
         "kind": 6,
         "importPath": "api.views",
         "description": "api.views",
-        "peekOfCode": "class Notificacion_General(APIView):\n    def post(self, request, format=None):\n        body = request.data.get(\"message\")\n        user = request.data.get(\"user\")\n        title = request.data.get(\"title\")\n        devices = FCMDevice.objects.filter(user__username=user)\n        tokend = devices.values_list('registration_id', flat=True)\n        message = messaging.MulticastMessage(\n                        notification=messaging.Notification(\n                            title=title,",
+        "peekOfCode": "class Notificacion_General(APIView):\n    def post(self, request, format=None):\n        bodys = request.data.get(\"message\")\n        user = request.data.get(\"user\")\n        titles = request.data.get(\"title\")\n        devices = FCMDevice.objects.filter(user__username=user)\n        tokend = devices.values_list('registration_id', flat=True)\n        data={\"ruta\": \"Historial\", \"descripcion\": \"Proveedor Interesado\"}\n        tokens=list(tokend)\n        send_notificationF(tokens,titles,bodys,data) ",
         "detail": "api.views",
         "documentation": {}
     },
@@ -8442,6 +8482,15 @@
         "documentation": {}
     },
     {
+        "label": "send_notificationF",
+        "kind": 2,
+        "importPath": "api.views",
+        "description": "api.views",
+        "peekOfCode": "def send_notificationF(tokend, title,body,data):\n    try:\n        # Verifica si el token está disponible\n        if not settings.FIREBASE_ACCESS_TOKEN:\n            return JsonResponse({\"error\": \"No se pudo obtener el token de Firebase\"}, status=500)\n        # Recorrer cada token en la lista\n        responses = []  # Almacena las respuestas de Firebase\n        for token in tokend:\n            # Cuerpo de la notificación\n            message = {",
+        "detail": "api.views",
+        "documentation": {}
+    },
+    {
         "label": "planesProveedor",
         "kind": 5,
         "importPath": "TomeSoft_1.actualizar",
@@ -8464,7 +8513,25 @@
         "kind": 5,
         "importPath": "TomeSoft_1.settings",
         "description": "TomeSoft_1.settings",
-        "peekOfCode": "BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\n# Quick-start development settings - unsuitable for production\n# See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/\n# SECURITY WARNING: keep the secret key used in production secret!\nSECRET_KEY = 'i@!=q4ky)pxe0sg&uz%qk&u!2rf2hga6qwh6^3!iopf4nldezq'\n# SECURITY WARNING: don't run with debug turned on in production!\nDEBUG = True\nALLOWED_HOSTS = ['tomesoft1.pythonanywhere.com', '127.0.0.1', 'http://localhost:3000/','ccapi-stg.paymentez.com','*']\n# Application definition\nINSTALLED_APPS = [",
+        "peekOfCode": "BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\nFIREBASE_ACCESS_TOKEN = None\nACCESS_URL = None\ntry:\n    ACCESS_URL = \"https://fcm.googleapis.com/v1/projects/vive-facil-66ae4/messages:send\"\n    # Ruta al archivo de credenciales\n    cred = credentials.Certificate(\"C:/Users/user/Desktop/vivefacil/Nueva carpeta/BACK/ViveFacilBack2024/TomeSoft_1/vive-facil-66ae4-firebase-adminsdk-fo42r-94d590fc9a.json\")\n    # Inicializa Firebase Admin SDK\n    firebase_admin.initialize_app(cred)\n    print(\"Firebase Admin SDK inicializado correctamente.\")",
+        "detail": "TomeSoft_1.settings",
+        "documentation": {}
+    },
+    {
+        "label": "FIREBASE_ACCESS_TOKEN",
+        "kind": 5,
+        "importPath": "TomeSoft_1.settings",
+        "description": "TomeSoft_1.settings",
+        "peekOfCode": "FIREBASE_ACCESS_TOKEN = None\nACCESS_URL = None\ntry:\n    ACCESS_URL = \"https://fcm.googleapis.com/v1/projects/vive-facil-66ae4/messages:send\"\n    # Ruta al archivo de credenciales\n    cred = credentials.Certificate(\"C:/Users/user/Desktop/vivefacil/Nueva carpeta/BACK/ViveFacilBack2024/TomeSoft_1/vive-facil-66ae4-firebase-adminsdk-fo42r-94d590fc9a.json\")\n    # Inicializa Firebase Admin SDK\n    firebase_admin.initialize_app(cred)\n    print(\"Firebase Admin SDK inicializado correctamente.\")\n    # Generar el token de acceso utilizando google-auth",
+        "detail": "TomeSoft_1.settings",
+        "documentation": {}
+    },
+    {
+        "label": "ACCESS_URL",
+        "kind": 5,
+        "importPath": "TomeSoft_1.settings",
+        "description": "TomeSoft_1.settings",
+        "peekOfCode": "ACCESS_URL = None\ntry:\n    ACCESS_URL = \"https://fcm.googleapis.com/v1/projects/vive-facil-66ae4/messages:send\"\n    # Ruta al archivo de credenciales\n    cred = credentials.Certificate(\"C:/Users/user/Desktop/vivefacil/Nueva carpeta/BACK/ViveFacilBack2024/TomeSoft_1/vive-facil-66ae4-firebase-adminsdk-fo42r-94d590fc9a.json\")\n    # Inicializa Firebase Admin SDK\n    firebase_admin.initialize_app(cred)\n    print(\"Firebase Admin SDK inicializado correctamente.\")\n    # Generar el token de acceso utilizando google-auth\n    credentials = service_account.Credentials.from_service_account_file(",
         "detail": "TomeSoft_1.settings",
         "documentation": {}
     },
