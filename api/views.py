@@ -742,8 +742,7 @@ class Categorias(APIView):
         titles = "Categoría Eliminada: "+categoria.nombre
         bodys = "¡Sorry, no podrás acceder a la categoría!"
         tokens=list(tokend),  # Convertir a lista
-        if tokend:
-            send_notificationF(tokens,titles,bodys,dataMensaje) 
+        send_notificationF(tokens,titles,bodys,dataMensaje) 
                     
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -3623,29 +3622,10 @@ class Envio(APIView):
                 devices = FCMDevice.objects.filter(
                     active=True, user__username=solicitante.user_datos.user.email)
 
-                message = messaging.MulticastMessage(
-                        notification=messaging.Notification(
-                            title=titles,
-                            body=bodys,
-                        ),
-                        data={"ruta": "/historial",
-                          "descripcion": "Ha recibido una oferta en el siguiente servicio: " + solicitud.servicio.nombre},
-                        tokens=list(tokend),  # Convertir a lista
-                )
-                try:
-                    # Enviar la notificación
-                    response = messaging.send_multicast(message)
-
-                    if response.success_count > 0:
-                        print(f"Se enviaron {response.success_count} mensajes.")
-                    else:
-                        print(f"No se lograron enviar mensajes.")
-                        for idx, result in enumerate(response.responses):
-                            if not result.success:
-                                        print(f"Token inválido: {tokend[idx]}")                 
-                except FirebaseError as e:                       
-                    if 'UNREGISTERED' in str(e):
-                        print("Token inválido, eliminar de la base de datos.")
+                data={"ruta": "/historial",
+                          "descripcion": "Ha recibido una oferta en el siguiente servicio: " + solicitud.servicio.nombre}
+                tokens=list(tokend)
+                send_notificationF(tokens,titles,bodys,data) 
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
