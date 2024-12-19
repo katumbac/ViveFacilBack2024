@@ -7253,7 +7253,7 @@
         "kind": 6,
         "importPath": "api.views",
         "description": "api.views",
-        "peekOfCode": "class AdjudicarSolicitud(APIView):\n    def put(self, request, solicitud_ID, format=None):\n        data = {}\n        try:\n            id_user = request.data.get('proveedor')\n            print(id_user)\n            print(type(id_user))\n            print(\"hola\")\n            proveedor = Proveedor.objects.get(user_datos__user__id=int(id_user))\n            print(solicitud_ID)",
+        "peekOfCode": "class AdjudicarSolicitud(APIView):\n    def put(self, request, solicitud_ID, format=None):\n        data = {}\n        try:\n            id_user = request.data.get('proveedor')\n            print(\"is\",id_user)\n            print(type(id_user))\n            print(\"hola\")\n            proveedor = Proveedor.objects.get(user_datos__user__id=int(id_user))\n            print(\"soli\",solicitud_ID)",
         "detail": "api.views",
         "documentation": {}
     },

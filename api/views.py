@@ -1805,11 +1805,11 @@ class AdjudicarSolicitud(APIView):
         data = {}
         try:
             id_user = request.data.get('proveedor')
-            print(id_user)
+            print("is",id_user)
             print(type(id_user))
             print("hola")
             proveedor = Proveedor.objects.get(user_datos__user__id=int(id_user))
-            print(solicitud_ID)
+            print("soli",solicitud_ID)
             print(type(solicitud_ID))
             print("hola")
             solicitud = Solicitud.objects.get(id=int(solicitud_ID))
@@ -3621,7 +3621,7 @@ class Envio(APIView):
                 bodys = '¡Dale un vistazo!'
                 devices = FCMDevice.objects.filter(
                     active=True, user__username=solicitante.user_datos.user.email)
-
+                tokend = devices.values_list('registration_id', flat=True)
                 dataNot={"ruta": "/historial",
                           "descripcion": "Ha recibido una oferta en el siguiente servicio: " + solicitud.servicio.nombre}
                 tokens=list(tokend)
