@@ -568,10 +568,11 @@ class EmailFactura(APIView):
             pago_desc = request.data.get('pago_descripcion')
             transaccion = request.data.get('transaccion')
             proveedor = request.data.get('proveedor')
+            solicitud = request.data.get('solicitud')
             # emails = request.data.get('emails')
             try:
                 asunto = 'Factura Pago de Servicios Vive Fácil'
-                thread = threading.Thread(target=formatEmail.send_email(emails, asunto, 'emails/factura.html', {"fecha_today": fecha, "fecha_emision": fecha, "solicitante_name": user.nombres + ' ' + user.apellidos, "solicitud_descripcion": descripcion,
+                thread = threading.Thread(target=formatEmail.send_email(emails, asunto, 'emails/factura.html', {"fecha_today": fecha, "fecha_emision": fecha, "solicitante_name": user.nombres + ' ' + user.apellidos, "solicitud_descripcion": solicitud,
                                                                                                                 "transaccion_id": transaccion, "proveedor_name": proveedor, "pago_descripcion": pago_desc, "metodo_pago": metodo, "oferta": oferta, "descuento": descuento, "valor_total": valor}))
                 thread.start()
                 data['success'] = True
