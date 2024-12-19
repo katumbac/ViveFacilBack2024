@@ -858,12 +858,12 @@ class Servicios(APIView):
             tokens=list(tokend)
             titles="Nuevo Servicio: "+nombre,
             bodys="¡Dale un vistazo!",
-            data={
+            dataNot={
                   "ruta": "/main-tabs/home",
                   "descripcion": "El servicio " + nombre + " se ha agregado a nuestro aplicativo",
             },
 
-            send_notificationF(tokens,titles,bodys,data) 
+            send_notificationF(tokens,titles,bodys,dataNot) 
 
             return Response(data)
 
@@ -1826,10 +1826,10 @@ class AdjudicarSolicitud(APIView):
                     active=True, user__id=proveedor.user_datos.user.id)
                 tokend = devices.values_list('registration_id', flat=True)
                 tokens=list(tokend) 
-                data = {"ruta": "/historial",
+                dataNot = {"ruta": "/historial",
                           "descripcion": "Se le ha adjudicado el siguiente servicio: " + solicitud.servicio.nombre}
 
-                send_notificationF(tokens,titles,bodys,data) 
+                send_notificationF(tokens,titles,bodys,dataNot) 
 
 
                 data['message'] = 'Solicitud adjudicada exitosamente!.'
@@ -2067,10 +2067,10 @@ class Solicituds(APIView):
                     
                     # Obtiene la lista de registration_ids (tokens)
                     tokend = devices.values_list('registration_id', flat=True)
-                    data={"ruta": "/historial", "descripcion": "Puede observar la solicitud " +
+                    dataNot={"ruta": "/historial", "descripcion": "Puede observar la solicitud " +
                               solicitud.servicio.nombre + " finalizada en la seccion de Historial > PASADAS"}
                     tokens=list(tokend)
-                    send_notificationF(tokens,titles,bodys,data) 
+                    send_notificationF(tokens,titles,bodys,dataNot) 
 
 
                 data['message'] = 'Solicitud actualizada exitosamente!.'
@@ -2560,7 +2560,7 @@ class Proveedores_Details(APIView):
             titles="Tienes una Nueva Profesión: "+profesion
             bodys="¡Dale un vistazo!"
             tokens=list(tokend)
-            send_notificationF(tokens,titles,bodys,data) 
+            send_notificationF(tokens,titles,bodys,dataMensaje) 
 
             data["error"] = "Sin Errores"
             return Response(data)
@@ -3609,11 +3609,11 @@ class Envio(APIView):
                     active=True, user__username=solicitante.user_datos.user.email)
                 tokend = devices.values_list('registration_id', flat=True)
             
-                data={"ruta": "/historial",
+                dataNot={"ruta": "/historial",
                           "descripcion": "Ha cambiado el precio del siguiente servicio: " + solicitud.servicio.nombre}
                 
                 tokens=list(tokend)
-                send_notificationF(tokens,titles,bodys,data) 
+                send_notificationF(tokens,titles,bodys,dataNot) 
             
             else:
                 titles = 'Tienes una nueva oferta en el servicio de ' + \
@@ -3622,10 +3622,10 @@ class Envio(APIView):
                 devices = FCMDevice.objects.filter(
                     active=True, user__username=solicitante.user_datos.user.email)
 
-                data={"ruta": "/historial",
+                dataNot={"ruta": "/historial",
                           "descripcion": "Ha recibido una oferta en el siguiente servicio: " + solicitud.servicio.nombre}
                 tokens=list(tokend)
-                send_notificationF(tokens,titles,bodys,data) 
+                send_notificationF(tokens,titles,bodys,dataNot) 
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -4348,10 +4348,10 @@ class Promociones(APIView):
                     active=True, user__groups__name='Solicitante')
                 tokend = devices.values_list('registration_id', flat=True)
             
-                data={"ruta": "Home",
+                dataNot={"ruta": "Home",
                           "descripcion": "Se ha creado una nueva promoción"}
                 tokens=list(tokend)
-                send_notificationF(tokens,titles,bodys,data)    
+                send_notificationF(tokens,titles,bodys,dataNot)    
 
                 data['success'] = True
                 data['msg'] = "La promoción se ha creado exitosamente"
@@ -4502,10 +4502,10 @@ class Cupones(APIView):
                     active=True, user__groups__name="Solicitante")
                 tokend = devices.values_list('registration_id', flat=True)
             
-                data={"ruta": "/promociones",
+                dataNot={"ruta": "/promociones",
                           "descripcion": "Se encuentra disponible un nuevo cupón!"}
                 tokens=list(tokend)
-                send_notificationF(tokens,titles,bodys,data) 
+                send_notificationF(tokens,titles,bodys,dataNot) 
 
                 data['success'] = True
                 data['msg'] = "El cupon se ha creado exitosamente"
@@ -4698,10 +4698,10 @@ class PagosTarjeta(APIView):
                     active=True, user__username=solicitud.proveedor.user_datos.user.email)
                 tokend = devices.values_list('registration_id', flat=True)
             
-                data={"ruta": "/historial", "descripcion": "El pago por el servicio de " +
+                dataNot={"ruta": "/historial", "descripcion": "El pago por el servicio de " +
                           solicitud.servicio.nombre + " fue existoso"}
                 tokens=list(tokend)
-                send_notificationF(tokens,titles,bodys,data) 
+                send_notificationF(tokens,titles,bodys,dataNot) 
 
                 return Response(data)
 
@@ -4759,10 +4759,10 @@ class PagosEfectivo(APIView):
                     active=True, user__id=solicitud.proveedor.user_datos.user.id)
                 tokend = devices.values_list('registration_id', flat=True)
             
-                data={"ruta": "/historial", "descripcion": "El pago por el servicio de " +
+                dataNot={"ruta": "/historial", "descripcion": "El pago por el servicio de " +
                           solicitud.servicio.nombre + " fue existoso"}
                 tokens=list(tokend)
-                send_notificationF(tokens,titles,bodys,data) 
+                send_notificationF(tokens,titles,bodys,dataNot) 
 
                 return Response(data)
 
