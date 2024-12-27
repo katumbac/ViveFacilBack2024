@@ -69,6 +69,7 @@ def send_notificationF(tokend, title,body,data):
     try:
         # Verifica si el token está disponible
         if not settings.FIREBASE_ACCESS_TOKEN:
+            print("No se pudo obtener el token de Firebase")
             return JsonResponse({"error": "No se pudo obtener el token de Firebase"}, status=500)
 
         # Recorrer cada token en la lista
@@ -5007,6 +5008,18 @@ class Politics(APIView):
         else:
             data['error'] = "Error al crear!."
             return Response(data)
+        
+    def put(self, request, identifier, format=None):
+        try:
+            pol = Politicas.objects.get(identifier=identifier)
+            term = request.data.get('terminos')
+            pol.terminos = term
+            pol.save()
+            serializer = PoliticasSerializer(pol)
+            data = {'politics': serializer.data}
+            return Response(data)
+        except Politicas.DoesNotExist:
+            return Response({"error": "Política no encontrada."}, status=status.HTTP_404_NOT_FOUND)
 
 
 class Planes(APIView):
@@ -5495,6 +5508,17 @@ class SendNotificacion(APIView):
         try:
             notificacion_masiva = NotificacionMasiva.objects.get(id=id)
             notificacion_masiva.delete()
+            
+            devices = FCMDevice.objects.filter(active=True)
+            tokend = devices.values_list('registration_id', flat=True)
+            tokens=list(tokend)
+            titles = notificacion_masiva.titulo
+            descripcion = notificacion_masiva.descripcion
+            dataNot = {}
+            dataNot["descripcion"] = descripcion
+
+            send_notificationF(tokens,titles,descripcion,dataNot)
+            
             data['success'] = True
             data['message'] = "Se ha eliminado la notificación exitosamente."
             return Response(data)

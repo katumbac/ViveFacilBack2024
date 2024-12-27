@@ -190,6 +190,7 @@ urlpatterns += [
     path('pagosol_tarjeta/<str:pago_ID>', PagosSolicitudesTarjeta.as_view()),
     path('enviaralerta/<str:user_email>/<str:asunto>/<str:texto>', EnviarAlerta.as_view()),
     path('politics/', Politics.as_view()),
+    path('politics/<str:identifier>/', Politics.as_view(), name='politica-detail'), 
     path('planes/', Planes.as_view()),
     path('planes/<str:id>', Planes.as_view()),
     path('planesEstado/', PlanesEstado.as_view()),
