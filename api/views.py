@@ -4264,6 +4264,16 @@ class Notificaciones(APIView, MyPaginationMixin):
         try:
             notificacion= Notificacion.objects.get(id=id)
             notificacion.delete()
+            
+            devices = FCMDevice.objects.filter(active=True)
+            tokend = devices.values_list('registration_id', flat=True)
+            tokens=list(tokend)
+            titles = "Notificacion eliminada:" + notificacion.titulo
+            descripcion = notificacion.descripcion
+            dataNot = {}
+            dataNot["descripcion"] = descripcion
+
+            send_notificationF(tokens,titles,descripcion,dataNot)
             data['success'] = True
             data['message'] = "Se ha eliminado la notificación exitosamente."
             return Response(data, status=status.HTTP_200_OK)
@@ -4286,6 +4296,48 @@ class Notificaciones_Details(APIView):
         noti.estado = request.data.get('estado')
         noti.save()
         return Response(status=status.HTTP_200_OK)
+    
+    def post(self, request, pk, format=None):
+        try:
+            # Obtener la notificación masiva seleccionada
+            prove_select = Notificacion.objects.get(id=pk)
+        except Notificacion.DoesNotExist:
+            return Response({"error": "Notificación no encontrada."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Obtener el tipo de proveedor desde la notificación masiva
+        tipo_proveedor = prove_select.tipo_proveedores  # Suponiendo que tipo_proveedores es un campo en NotificacionMasiva
+
+        # Filtrar proveedores cuya profesión coincida con el tipo de proveedor
+        proveedores = Proveedor_Pendiente.objects.filter(profesion__in=[tipo_proveedor])
+
+        if not proveedores.exists():
+            return Response({"error": "No se encontraron proveedores para el tipo de proveedor especificado."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Preparar los datos de la notificación
+        descripcion = prove_select.descripcion
+        dataNot = {
+            "descripcion": descripcion
+        }
+
+        # Recorrer cada proveedor y obtener los dispositivos asociados
+        for proveedor in proveedores:
+            # Obtener el user_id del proveedor
+            p_user_id = proveedor.user_datos.user.id
+
+            # Obtener los dispositivos activos asociados a ese user_id
+            devices = FCMDevice.objects.filter(active=True, user_id=p_user_id)
+
+            # Obtener los tokens de esos dispositivos
+            tokens = devices.values_list('registration_id', flat=True)
+
+            if tokens:
+                # Enviar la notificación solo si existen tokens
+                send_notificationF(list(tokens), prove_select.titulo, descripcion, dataNot)
+            else:
+                # Si no hay dispositivos activos para este proveedor, puedes registrar un error o continuar
+                print(f"No se encontraron dispositivos activos para el proveedor con user_id {p_user_id}")
+
+        return Response({"message": "Notificación enviada correctamente a los proveedores seleccionados."}, status=status.HTTP_200_OK)
 
 class Grupos(APIView):
     def get(self, request, format=None):
@@ -5512,7 +5564,7 @@ class SendNotificacion(APIView):
             devices = FCMDevice.objects.filter(active=True)
             tokend = devices.values_list('registration_id', flat=True)
             tokens=list(tokend)
-            titles = notificacion_masiva.titulo
+            titles = "Notificacion eliminada:" + notificacion_masiva.titulo
             descripcion = notificacion_masiva.descripcion
             dataNot = {}
             dataNot["descripcion"] = descripcion
@@ -5541,6 +5593,49 @@ class SendNotificacion_Details(APIView):
         noti.estado = request.data.get('estado')
         noti.save()
         return Response(status=status.HTTP_200_OK)
+    
+    def post(self, request, pk, format=None):
+        try:
+            # Obtener la notificación masiva seleccionada
+            prove_select = NotificacionMasiva.objects.get(id=pk)
+        except NotificacionMasiva.DoesNotExist:
+            return Response({"error": "Notificación masiva no encontrada."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Obtener el tipo de proveedor desde la notificación masiva
+        tipo_proveedor = prove_select.tipo_proveedores  # Suponiendo que tipo_proveedores es un campo en NotificacionMasiva
+
+        # Filtrar proveedores cuya profesión coincida con el tipo de proveedor
+        proveedores = Proveedor_Pendiente.objects.filter(profesion__in=[tipo_proveedor])
+
+        if not proveedores.exists():
+            return Response({"error": "No se encontraron proveedores para el tipo de proveedor especificado."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Preparar los datos de la notificación
+        descripcion = prove_select.descripcion
+        dataNot = {
+            "descripcion": descripcion
+        }
+
+        # Recorrer cada proveedor y obtener los dispositivos asociados
+        for proveedor in proveedores:
+            # Obtener el user_id del proveedor
+            p_user_id = proveedor.user_datos.user.id
+
+            # Obtener los dispositivos activos asociados a ese user_id
+            devices = FCMDevice.objects.filter(active=True, user_id=p_user_id)
+
+            # Obtener los tokens de esos dispositivos
+            tokens = devices.values_list('registration_id', flat=True)
+
+            if tokens:
+                # Enviar la notificación solo si existen tokens
+                send_notificationF(list(tokens), prove_select.titulo, descripcion, dataNot)
+            else:
+                # Si no hay dispositivos activos para este proveedor, puedes registrar un error o continuar
+                print(f"No se encontraron dispositivos activos para el proveedor con user_id {p_user_id}")
+
+        return Response({"message": "Notificación enviada correctamente a los proveedores seleccionados."}, status=status.HTTP_200_OK)
+
 
 
 class RolesPermisos(APIView):
