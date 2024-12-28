@@ -4297,21 +4297,12 @@ class Notificaciones_Details(APIView):
         noti.save()
         return Response(status=status.HTTP_200_OK)
     
-    def post(self, request, pk, format=None):
-        try:
-            # Obtener la notificación masiva seleccionada
-            prove_select = Notificacion.objects.get(id=pk)
-        except Notificacion.DoesNotExist:
-            return Response({"error": "Notificación no encontrada."}, status=status.HTTP_404_NOT_FOUND)
-
+    def post(self, request):
+        pk = request.GET.get('id')
+        prove_select = Notificacion.objects.get(id=pk)
+        serializer = NotificacionSerializer(prove_select)
         # Obtener el tipo de proveedor desde la notificación masiva
         tipo_proveedor = prove_select.tipo_proveedores  # Suponiendo que tipo_proveedores es un campo en NotificacionMasiva
-
-        # Filtrar proveedores cuya profesión coincida con el tipo de proveedor
-        proveedores = Proveedor_Pendiente.objects.filter(profesion__in=[tipo_proveedor])
-
-        if not proveedores.exists():
-            return Response({"error": "No se encontraron proveedores para el tipo de proveedor especificado."}, status=status.HTTP_404_NOT_FOUND)
 
         # Preparar los datos de la notificación
         descripcion = prove_select.descripcion
@@ -4319,23 +4310,51 @@ class Notificaciones_Details(APIView):
             "descripcion": descripcion
         }
 
-        # Recorrer cada proveedor y obtener los dispositivos asociados
+        # Filtrar proveedores cuya profesión coincida con el tipo de proveedor
+        proveedores = Proveedor.objects.all()
         for proveedor in proveedores:
-            # Obtener el user_id del proveedor
-            p_user_id = proveedor.user_datos.user.id
+            if ',' in proveedor.profesion:
+                profesiones = proveedor.profesion.split(",")
+                if tipo_proveedor in profesiones:
+                    print(f'Proveedor {proveedor} tiene la profesión {tipo_proveedor}')
+                    p_user_id = proveedor.user_datos.id
+                    print("id", p_user_id)
+                    datos_prov = Datos.objects.get(id=proveedor.user_datos.id)
+                    user = User.objects.get(id=datos_prov.user.id)
+                    u_id = user.id
+                    print("idp", u_id)
+                    
+                    devices = FCMDevice.objects.filter(active=True, user_id=u_id)
+                    # Obtener los tokens de esos dispositivos
+                    tokens = devices.values_list('registration_id', flat=True)
 
-            # Obtener los dispositivos activos asociados a ese user_id
-            devices = FCMDevice.objects.filter(active=True, user_id=p_user_id)
-
-            # Obtener los tokens de esos dispositivos
-            tokens = devices.values_list('registration_id', flat=True)
-
-            if tokens:
-                # Enviar la notificación solo si existen tokens
-                send_notificationF(list(tokens), prove_select.titulo, descripcion, dataNot)
+                    if tokens:
+                        # Enviar la notificación solo si existen tokens
+                        send_notificationF(list(tokens), prove_select.titulo, descripcion, dataNot)
+                    else:
+                        # Si no hay dispositivos activos para este proveedor, puedes registrar un error o continuar
+                        print(f"No se encontraron dispositivos activos para el proveedor con user_id {p_user_id}")
             else:
-                # Si no hay dispositivos activos para este proveedor, puedes registrar un error o continuar
-                print(f"No se encontraron dispositivos activos para el proveedor con user_id {p_user_id}")
+                # Si la profesión no tiene comas, es un solo valor
+                if proveedor.profesion == tipo_proveedor:
+                    print(f'Proveedor {proveedor} tiene la profesión {tipo_proveedor}')
+                    p_user_id = proveedor.user_datos.id
+                    print("id", p_user_id)
+                    datos_prov = Datos.objects.get(id=proveedor.user_datos.id)
+                    user = User.objects.get(id=datos_prov.user.id)
+                    u_id = user.id
+                    print("idp", u_id)
+                    
+                    devices = FCMDevice.objects.filter(active=True, user_id=u_id)
+                    # Obtener los tokens de esos dispositivos
+                    tokens = devices.values_list('registration_id', flat=True)
+
+                    if tokens:
+                        # Enviar la notificación solo si existen tokens
+                        send_notificationF(list(tokens), prove_select.titulo, descripcion, dataNot)
+                    else:
+                        # Si no hay dispositivos activos para este proveedor, puedes registrar un error o continuar
+                        print(f"No se encontraron dispositivos activos para el proveedor con user_id {p_user_id}")          
 
         return Response({"message": "Notificación enviada correctamente a los proveedores seleccionados."}, status=status.HTTP_200_OK)
 
@@ -5594,45 +5613,64 @@ class SendNotificacion_Details(APIView):
         noti.save()
         return Response(status=status.HTTP_200_OK)
     
-    def post(self, request, pk, format=None):
-        try:
-            # Obtener la notificación masiva seleccionada
-            prove_select = NotificacionMasiva.objects.get(id=pk)
-        except NotificacionMasiva.DoesNotExist:
-            return Response({"error": "Notificación masiva no encontrada."}, status=status.HTTP_404_NOT_FOUND)
-
+    def post(self, request):
+        pk = request.GET.get('id')
+        prove_select = NotificacionMasiva.objects.get(id=pk)
+        serializer = NotificacionMasivaSerializer(prove_select)
         # Obtener el tipo de proveedor desde la notificación masiva
         tipo_proveedor = prove_select.tipo_proveedores  # Suponiendo que tipo_proveedores es un campo en NotificacionMasiva
-
-        # Filtrar proveedores cuya profesión coincida con el tipo de proveedor
-        proveedores = Proveedor_Pendiente.objects.filter(profesion__in=[tipo_proveedor])
-
-        if not proveedores.exists():
-            return Response({"error": "No se encontraron proveedores para el tipo de proveedor especificado."}, status=status.HTTP_404_NOT_FOUND)
-
         # Preparar los datos de la notificación
         descripcion = prove_select.descripcion
         dataNot = {
             "descripcion": descripcion
         }
-
-        # Recorrer cada proveedor y obtener los dispositivos asociados
+        # Filtrar proveedores cuya profesión coincida con el tipo de proveedor
+        proveedores = Proveedor.objects.all()
         for proveedor in proveedores:
-            # Obtener el user_id del proveedor
-            p_user_id = proveedor.user_datos.user.id
+            if ',' in proveedor.profesion:
+                profesiones = proveedor.profesion.split(",")
+                if tipo_proveedor in profesiones:
+                    print(f'Proveedor {proveedor} tiene la profesión {tipo_proveedor}')
+                    p_user_id = proveedor.user_datos.id
+                    print("id", p_user_id)
+                    datos_prov = Datos.objects.get(id=proveedor.user_datos.id)
+                    user = User.objects.get(id=datos_prov.user.id)
+                    u_id = user.id
+                    print("idp", u_id)
+                    
+                    devices = FCMDevice.objects.filter(active=True, user_id=u_id)
 
-            # Obtener los dispositivos activos asociados a ese user_id
-            devices = FCMDevice.objects.filter(active=True, user_id=p_user_id)
+                    # Obtener los tokens de esos dispositivos
+                    tokens = devices.values_list('registration_id', flat=True)
 
-            # Obtener los tokens de esos dispositivos
-            tokens = devices.values_list('registration_id', flat=True)
-
-            if tokens:
-                # Enviar la notificación solo si existen tokens
-                send_notificationF(list(tokens), prove_select.titulo, descripcion, dataNot)
+                    if tokens:
+                        # Enviar la notificación solo si existen tokens
+                        send_notificationF(list(tokens), prove_select.titulo, descripcion, dataNot)
+                    else:
+                        # Si no hay dispositivos activos para este proveedor, puedes registrar un error o continuar
+                        print(f"No se encontraron dispositivos activos para el proveedor con user_id {u_id}")
             else:
-                # Si no hay dispositivos activos para este proveedor, puedes registrar un error o continuar
-                print(f"No se encontraron dispositivos activos para el proveedor con user_id {p_user_id}")
+                # Si la profesión no tiene comas, es un solo valor
+                if proveedor.profesion == tipo_proveedor:
+                    print(f'Proveedor {proveedor} tiene la profesión {tipo_proveedor}')
+                    p_user_id = proveedor.user_datos.id
+                    print("id", p_user_id)
+                    datos_prov = Datos.objects.get(id=proveedor.user_datos.id)
+                    user = User.objects.get(id=datos_prov.user.id)
+                    u_id = user.id
+                    print("idp", u_id)
+                    
+                    devices = FCMDevice.objects.filter(active=True, user_id=u_id)
+
+                    # Obtener los tokens de esos dispositivos
+                    tokens = devices.values_list('registration_id', flat=True)
+
+                    if tokens:
+                        # Enviar la notificación solo si existen tokens
+                        send_notificationF(list(tokens), prove_select.titulo, descripcion, dataNot)
+                    else:
+                        # Si no hay dispositivos activos para este proveedor, puedes registrar un error o continuar
+                        print(f"No se encontraron dispositivos activos para el proveedor con user_id {u_id}")          
 
         return Response({"message": "Notificación enviada correctamente a los proveedores seleccionados."}, status=status.HTTP_200_OK)
 
