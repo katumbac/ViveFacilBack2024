@@ -62,13 +62,13 @@ from firebase_admin import messaging
 from firebase_admin.exceptions import FirebaseError
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
-from TomeSoft_1.settings import ACCESS_URL
+from TomeSoft_1.settings import ACCESS_URL, FIREBASE_ACCESS_TOKEN
 
 @csrf_exempt
 def send_notificationF(tokend, title,body,data):
     try:
         # Verifica si el token está disponible
-        if not settings.FIREBASE_ACCESS_TOKEN:
+        if not FIREBASE_ACCESS_TOKEN:
             print("No se pudo obtener el token de Firebase")
             return JsonResponse({"error": "No se pudo obtener el token de Firebase"}, status=500)
 
@@ -89,11 +89,11 @@ def send_notificationF(tokend, title,body,data):
 
             # Envía la petición POST a FCM
             response = requests.post(
-                settings.ACCESS_URL,
+                ACCESS_URL,
                 json=message,
                 headers={
                     'Content-Type': 'application/json',
-                    'Authorization': f'Bearer {settings.FIREBASE_ACCESS_TOKEN}'
+                    'Authorization': f'Bearer {FIREBASE_ACCESS_TOKEN}'
                 }
             )
 
@@ -103,6 +103,51 @@ def send_notificationF(tokend, title,body,data):
                 "status_code": response.status_code,
                 "response": response.json() if response.status_code == 200 else response.text
             })
+
+        # Devuelve todas las respuestas
+
+        return JsonResponse({"message": "Notificaciones enviadas", "results": responses}, safe=False)
+    except Exception as e:
+        return JsonResponse({"error": "Error en el servidor", "details": str(e)}, status=500)
+
+
+@csrf_exempt
+def send_notificationI(token, title,body,data):
+    try:
+        # Verifica si el token está disponible
+        if not settings.FIREBASE_ACCESS_TOKEN:
+            print("No se pudo obtener el token de Firebase")
+            return JsonResponse({"error": "No se pudo obtener el token de Firebase"}, status=500)
+
+        # Recorrer cada token en la lista
+        responses = []  # Almacena las respuestas de Firebase
+        message = {
+                "message": {
+                    "token": token,  
+                    "notification": {
+                        "title": title,
+                        "body": body
+                    },
+                    "data": data
+                }
+        }
+
+            # Envía la petición POST a FCM
+        response = requests.post(
+                settings.ACCESS_URL,
+                json=message,
+                headers={
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {settings.FIREBASE_ACCESS_TOKEN}'
+                }
+        )
+
+            # Guarda la respuesta
+        responses.append({
+                "token": token,
+                "status_code": response.status_code,
+                "response": response.json() if response.status_code == 200 else response.text
+        })
 
         # Devuelve todas las respuestas
         return JsonResponse({"message": "Notificaciones enviadas", "results": responses}, safe=False)
@@ -2212,19 +2257,22 @@ class AddSolicitud(APIView):
                 data['message'] = f"Error al crear Envio_Interesados para proveedor {proveedor}: {str(e)}"
                 data['success'] = False
                 return Response(data)
-
-            # Intenta mandar una notificación al proveedor con el id.
-             # Filtra los dispositivos por el ID del usuario
-            devices = FCMDevice.objects.filter(user__id=prov.user_datos.user.id)
-            tokend = devices.values_list('registration_id', flat=True)
-            tokend = list(devices.values_list('registration_id', flat=True))
             
-
-            print(f"Tokens encontrados para el proveedor {proveedor}: {tokend}")
-            try:
-                               
-                send_notificationF(tokend,titles,bodys,data)
-                
+            try:                    
+                # Intenta mandar una notificación al proveedor con el id.
+                # Filtra los dispositivos por el ID del usuario
+                prov = Proveedor.objects.get(id=proveedor)
+                print("id", prov)
+                datos_prov = Datos.objects.get(id=prov.user_datos_id)
+                user = User.objects.get(id=datos_prov.user.id)
+                u_id = user.id
+                print("idp", u_id)             
+                devices = FCMDevice.objects.filter(active=True, user_id=u_id)
+                # Obtener los tokens de esos dispositivos
+                tokend = devices.values_list('registration_id', flat=True)
+                tokens = list(tokend)
+                print(f"Tokens encontrados para el proveedor {proveedor}: {tokend}")                  
+                send_notificationF(tokens,titles,bodys,data)
             except Exception as e:
                 print(f"Error al enviar notificación al proveedor {proveedor}: {e}")
                 # Realiza las eliminaciones o acciones necesarias en caso de error
@@ -3649,7 +3697,9 @@ class Envio(APIView):
 class Notificacion_Chat(APIView):
     def post(self, request, format=None):
         remitente = request.data.get("remitente")
-        titles = 'Nuevo Mensaje de ' + str(remitente)
+        remitente_nombre= Datos.objects.get(user_id=remitente)
+        titles = 'Nuevo Mensaje de ' + str(remitente_nombre)
+        
         isSolicitante = request.data.get("isSolicitante")
         bodys = request.data.get("message")
         user = request.data.get("user")
@@ -3659,7 +3709,8 @@ class Notificacion_Chat(APIView):
             ruta = "/main-tabs/chat"
         else:
             ruta = "/main/chat"
-        devices = FCMDevice.objects.filter(user=user)
+        print("user c",user)
+        devices = FCMDevice.objects.filter(user_id=user)
         # Obtiene la lista de registration_ids (tokens)
         tokend = devices.values_list('registration_id', flat=True)
         
@@ -3677,10 +3728,12 @@ class Notificacion_Chat_Proveedor(APIView):
         getUsuario = request.data.get("user")
         # usuario = Datos.objects.get(user_#id=getUsuario)
         solicitante = Solicitante.objects.get(user_datos__id=getUsuario)
-        titles = 'Nuevo Mensaje de ' + str(remitente)
+        remitente_nombre= Datos.objects.get(user_id=remitente)
+        titles = 'Nuevo Mensaje de ' + str(remitente_nombre)
         bodys = request.data.get("message")
-        devices = FCMDevice.objects.filter(
-            active=True, user__username=solicitante.user_datos.user.email)
+        u_id = solicitante.user_datos_id.user_id
+        print("user soli",u_id)
+        devices = FCMDevice.objects.filter(active=True, user_id=getUsuario)
         tokend = devices.values_list('registration_id', flat=True)
         
         data={"ruta": "/main/chat",
@@ -3696,7 +3749,7 @@ class Notificacion_General(APIView):
         bodys = request.data.get("message")
         user = request.data.get("user")
         titles = request.data.get("title")
-        devices = FCMDevice.objects.filter(user__username=user)
+        devices = FCMDevice.objects.filter(user_id=user)
         tokend = devices.values_list('registration_id', flat=True)
         
         data={"ruta": "Historial", "descripcion": "Proveedor Interesado"}
