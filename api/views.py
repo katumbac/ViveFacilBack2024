@@ -474,7 +474,7 @@ class DeviceNotification(APIView):
     def get(self, request, format=None):
         data = {}
         correo = request.data.get('correo')
-        devices = FCMDevice.objects.filter(user=correo)
+        devices = FCMDevice.objects.filter(active=True,user=correo)
         serializer = FCMDeviceSerializer(devices, many=True)
         if len(devices) != 0:
             for device in devices:
@@ -493,7 +493,7 @@ class DeviceNotification(APIView):
         data = {}
         token = request.data.get('token')
         # device = FCMDevice.objects.filter(registration_id=token, active=True)
-        device = FCMDevice.objects.filter(registration_id=token)
+        device = FCMDevice.objects.filter(active=True,registration_id=token)
         if len(device) > 0:
             data['message'] = 'Token existente.'
             return Response(data, status=status.HTTP_400_BAD_REQUEST)
@@ -513,7 +513,7 @@ class DeviceNotification(APIView):
         data = {}
         num_devices = 0
         correo = request.data.get('correo')
-        devices = FCMDevice.objects.filter(user=correo)
+        devices = FCMDevice.objects.filter(active=True,user=correo)
         if len(devices) != 0:
             for device in devices:
                 device.delete()
@@ -2600,7 +2600,7 @@ class Proveedores_Details(APIView):
             proveedorActual.save()
             # Notificacion a los usuarios
             # devices = FCMDevice.objects.filter(user__id= proveedorActual.user_datos.user.id)
-            devices = FCMDevice.objects.filter(
+            devices = FCMDevice.objects.filter( active=True,
                 user__id=proveedorActual.user_datos.user.id)
             # Obtiene la lista de registration_ids (tokens)
             tokend = devices.values_list('registration_id', flat=True)
@@ -3697,27 +3697,30 @@ class Envio(APIView):
 class Notificacion_Chat(APIView):
     def post(self, request, format=None):
         remitente = request.data.get("remitente")
-        remitente_nombre= Datos.objects.get(user_id=remitente)
-        titles = 'Nuevo Mensaje de ' + str(remitente_nombre)
-        
+        remitente_nombre= Datos.objects.get(id=remitente)
+        titles = 'Nuevo Mensaje de ' + remitente_nombre.nombres + remitente_nombre.apellidos
         isSolicitante = request.data.get("isSolicitante")
         bodys = request.data.get("message")
-        user = request.data.get("user")
+        user = request.data.get("user") 
         url = request.data.get("url")
         ruta = ""
         if isSolicitante:
-            ruta = "/main-tabs/chat"
+            ruta = "/main-tabs/chat"  
+            dato_prov = Datos.objects.get(user_id=user)
+            dato_id_prov = dato_prov.user_id
+            devices = FCMDevice.objects.filter(active=True, user_id=dato_id_prov)
+            tokend = devices.values_list('registration_id', flat=True) 
+            tokens=list(tokend)
+            print("soli true")
+            data={"url": url, "ruta": ruta, "descripcion": "Tiene un Mensaje nuevo"}
+            print("tok",tokens)
+            send_notificationF(tokens,titles,bodys,data) 
         else:
-            ruta = "/main/chat"
-        print("user c",user)
-        devices = FCMDevice.objects.filter(user_id=user)
-        # Obtiene la lista de registration_ids (tokens)
-        tokend = devices.values_list('registration_id', flat=True)
-        
-        data={"url": url, "ruta": ruta,
-                  "descripcion": "Tiene un Mensaje nuevo"}
-        tokens=list(tokend)
-        send_notificationF(tokens,titles,bodys,data) 
+            ruta = "/main/chat"   
+            print("soli false")         
+            data={"url": url, "ruta": ruta, "descripcion": "Tiene un Mensaje nuevo"}
+
+            send_notificationF(tokens,titles,bodys,data) 
            
         return Response(user)
 
@@ -3726,21 +3729,18 @@ class Notificacion_Chat_Proveedor(APIView):
     def post(self, request, format=None):
         remitente = request.data.get("remitente")
         getUsuario = request.data.get("user")
-        # usuario = Datos.objects.get(user_#id=getUsuario)
         solicitante = Solicitante.objects.get(user_datos__id=getUsuario)
-        remitente_nombre= Datos.objects.get(user_id=remitente)
-        titles = 'Nuevo Mensaje de ' + str(remitente_nombre)
+        remitente_nombre_prov= Datos.objects.get(user_id=remitente)
+        titles = 'Nuevo Mensaje de ' + remitente_nombre_prov.nombres
         bodys = request.data.get("message")
-        u_id = solicitante.user_datos_id.user_id
-        print("user soli",u_id)
-        devices = FCMDevice.objects.filter(active=True, user_id=getUsuario)
+        soli_id = solicitante.user_datos_id
+        devices = FCMDevice.objects.filter(
+                    active=True, user__username=solicitante.user_datos.user.email)
         tokend = devices.values_list('registration_id', flat=True)
-        
-        data={"ruta": "/main/chat",
-                            "descripcion": "Tiene un Mensaje nuevo"},
+        print("prov tokend",tokend)
+        data={"ruta": "/main/chat","descripcion": "Tiene un Mensaje nuevo"},
         tokens=list(tokend)
         send_notificationF(tokens,titles,bodys,data) 
-        
         return Response(getUsuario)
 
 
@@ -3749,7 +3749,7 @@ class Notificacion_General(APIView):
         bodys = request.data.get("message")
         user = request.data.get("user")
         titles = request.data.get("title")
-        devices = FCMDevice.objects.filter(user_id=user)
+        devices = FCMDevice.objects.filter(active=True, user_id=user)
         tokend = devices.values_list('registration_id', flat=True)
         
         data={"ruta": "Historial", "descripcion": "Proveedor Interesado"}
