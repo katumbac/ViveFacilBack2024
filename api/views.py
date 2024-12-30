@@ -3734,13 +3734,16 @@ class Notificacion_Chat_Proveedor(APIView):
         titles = 'Nuevo Mensaje de ' + remitente_nombre_prov.nombres
         bodys = request.data.get("message")
         soli_id = solicitante.user_datos_id
-        devices = FCMDevice.objects.filter(
-                    active=True, user__username=solicitante.user_datos.user.email)
+        dato_soli = Datos.objects.get(id=soli_id)
+        dato_id_soli = dato_soli.user_id
+        print("id_fcm",dato_id_soli)
+        devices = FCMDevice.objects.filter(active=True, user_id=dato_id_soli)
         tokend = devices.values_list('registration_id', flat=True)
         print("prov tokend",tokend)
         data={"ruta": "/main/chat","descripcion": "Tiene un Mensaje nuevo"},
         tokens=list(tokend)
-        send_notificationF(tokens,titles,bodys,data) 
+        x = send_notificationI(tokens,titles,bodys,data) 
+        print(x)
         return Response(getUsuario)
 
 

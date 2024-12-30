@@ -7801,7 +7801,7 @@
         "kind": 6,
         "importPath": "api.views",
         "description": "api.views",
-        "peekOfCode": "class Notificacion_Chat_Proveedor(APIView):\n    def post(self, request, format=None):\n        remitente = request.data.get(\"remitente\")\n        getUsuario = request.data.get(\"user\")\n        solicitante = Solicitante.objects.get(user_datos__id=getUsuario)\n        remitente_nombre_prov= Datos.objects.get(user_id=remitente)\n        titles = 'Nuevo Mensaje de ' + remitente_nombre_prov.nombres\n        bodys = request.data.get(\"message\")\n        soli_id = solicitante.user_datos_id\n        devices = FCMDevice.objects.filter(",
+        "peekOfCode": "class Notificacion_Chat_Proveedor(APIView):\n    def post(self, request, format=None):\n        remitente = request.data.get(\"remitente\")\n        getUsuario = request.data.get(\"user\")\n        solicitante = Solicitante.objects.get(user_datos__id=getUsuario)\n        remitente_nombre_prov= Datos.objects.get(user_id=remitente)\n        titles = 'Nuevo Mensaje de ' + remitente_nombre_prov.nombres\n        bodys = request.data.get(\"message\")\n        soli_id = solicitante.user_datos_id\n        dato_soli = Datos.objects.get(id=soli_id)",
         "detail": "api.views",
         "documentation": {}
     },
