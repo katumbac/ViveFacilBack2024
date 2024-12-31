@@ -68,7 +68,6 @@ from TomeSoft_1.settings import ACCESS_URL, FIREBASE_ACCESS_TOKEN
 def send_notificationF(tokend, title,body,data):
     try:
         # Verifica si el token está disponible
-        print("entra a send_not",tokend)
         if not FIREBASE_ACCESS_TOKEN:
             print("No se pudo obtener el token de Firebase")
             return JsonResponse({"error": "No se pudo obtener el token de Firebase"}, status=500)
@@ -76,11 +75,10 @@ def send_notificationF(tokend, title,body,data):
         # Recorrer cada token en la lista
         responses = []  # Almacena las respuestas de Firebase
         for token in tokend:
-            print("token",token)
             # Cuerpo de la notificación
             message = {
                 "message": {
-                    "token": token,
+                    "token": token,  
                     "notification": {
                         "title": title,
                         "body": body
@@ -89,7 +87,6 @@ def send_notificationF(tokend, title,body,data):
                 }
             }
 
-            print("message", message)
             # Envía la petición POST a FCM
             response = requests.post(
                 ACCESS_URL,
@@ -99,8 +96,6 @@ def send_notificationF(tokend, title,body,data):
                     'Authorization': f'Bearer {FIREBASE_ACCESS_TOKEN}'
                 }
             )
-
-            print("response",response)
 
             # Guarda la respuesta
             responses.append({
@@ -128,7 +123,7 @@ def send_notificationI(token, title,body,data):
         responses = []  # Almacena las respuestas de Firebase
         message = {
                 "message": {
-                    "token": token,
+                    "token": token,  
                     "notification": {
                         "title": title,
                         "body": body
@@ -636,7 +631,7 @@ class EmailFactura(APIView):
         else:
             data['success'] = False
             return Response(data)
-
+        
 class RecuperarPassword(APIView):
     def get(selt, request, user_email, format=None):
         data = {'success': False}
@@ -759,16 +754,16 @@ class Categorias(APIView):
                     dataMensaje["descripcion"] = "Es de nuestro agrado informarles que la Categoría " + \
                         categoria.nombre + " ha regresado nuevamente a su servicio"
                     dataMensaje["ruta"] = "/main-tabs/home"
-
+                    
                 # devices = FCMDevice.objects.filter(user__id = 542)
                 devices = FCMDevice.objects.filter(
                     active=True, user__groups__name="Solicitante")
                 tokend = devices.values_list('registration_id', flat=True)
                 tokens=list(tokend)
-
-
+                
+                
                 if tokend:
-                    send_notificationF(tokens,titles,bodys,dataMensaje)
+                    send_notificationF(tokens,titles,bodys,dataMensaje) 
                 else:
                     dataMensaje['message'] = 'No hay dispositivos registrados para enviar la notificación.'
                     dataMensaje['success'] = False
@@ -785,8 +780,8 @@ class Categorias(APIView):
         devices = FCMDevice.objects.filter(
             active=True, user__groups__name='Solicitante')
         tokend = devices.values_list('registration_id', flat=True)
-
-
+        
+        
         dataMensaje["descripcion"] = "Lamentamos informarles que la Categoría " + \
             categoria.nombre + " ha sido eliminada de la aplicación"
         dataMensaje["ruta"] = "/main-tabs/home"
@@ -794,8 +789,8 @@ class Categorias(APIView):
         titles = "Categoría Eliminada: "+categoria.nombre
         bodys = "¡Sorry, no podrás acceder a la categoría!"
         tokens=list(tokend),  # Convertir a lista
-        send_notificationF(tokens,titles,bodys,dataMensaje)
-
+        send_notificationF(tokens,titles,bodys,dataMensaje) 
+                    
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def post(self, request, format=None):
@@ -813,14 +808,14 @@ class Categorias(APIView):
             active=True, user__groups__name='Solicitante')
         # Obtiene la lista de registration_ids (tokens)
         tokend = devices.values_list('registration_id', flat=True)
-
+          
         titles="Nueva Categoría: "+nombre
-        bodys="¡Dale un vistazo!"
+        bodys="¡Dale un vistazo!"  
         data["ruta"] = "/main-tabs/home"
         data["descripcion"] = "Vive Fácil cuenta con una nueva Categoría llamada " + categoria_creada.nombre
-        tokens=list(tokend),
+        tokens=list(tokend),  
         if tokend:
-            send_notificationF(tokens,titles,bodys,data)
+            send_notificationF(tokens,titles,bodys,data) 
 
         data['categoria'] = serializer.data
         if categoria_creada:
@@ -879,8 +874,8 @@ class Servicios(APIView):
         data["descripcion"] = "El servicio " + nombreServico + " se ha eliminado de nuestro aplicativo"
         # Verifica que haya tokens para enviar
         if tokend:
-            send_notificationF(tokens,titles,bodys,data)
-
+            send_notificationF(tokens,titles,bodys,data) 
+            
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def post(self, request, format=None):
@@ -915,7 +910,7 @@ class Servicios(APIView):
                   "descripcion": "El servicio " + nombre + " se ha agregado a nuestro aplicativo",
             },
 
-            send_notificationF(tokens,titles,bodys,dataNot)
+            send_notificationF(tokens,titles,bodys,dataNot) 
 
             return Response(data)
 
@@ -1602,9 +1597,9 @@ class Proveedores_Pendientes_Details(APIView):
 
         pendiente.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
+    
 class Proveedores_Pendientes_Estado(APIView):
-
+    
     def put(self, request):
         ident = request.GET.get('id')
         prov = Proveedor_Pendiente.objects.get(id=ident)
@@ -1628,7 +1623,7 @@ class Proveedores_Pendientes_Details2(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 class Proveedores_Rechazado_Estado(APIView):
-
+    
     def put(self, request):
         ident = request.GET.get('id')
         prov = Proveedor_Pendiente.objects.get(id=ident)
@@ -1673,7 +1668,7 @@ class Proveedores_Proveedores_Details(APIView):
         if 'user_datos' in request.data:
             user_datos_str = request.data['user_datos']
             user_datos = json.loads(user_datos_str) if isinstance(user_datos_str, str) else user_datos_str
-
+            
             # Actualizar los campos de 'user_datos'
             pendiente.user_datos.nombres = user_datos.get('nombres')
             pendiente.user_datos.apellidos = user_datos.get('apellidos')
@@ -1761,7 +1756,7 @@ class ProveedorDeleteView(APIView):
             "solicitudes_eliminadas": solicitudes_eliminadas[0],
         }, status=status.HTTP_204_NO_CONTENT)
 
-
+        
 class Proveedores_Rechazados_Details(APIView):
 
     def get(self, request, pk, format=None):
@@ -1877,11 +1872,11 @@ class AdjudicarSolicitud(APIView):
                 devices = FCMDevice.objects.filter(
                     active=True, user__id=proveedor.user_datos.user.id)
                 tokend = devices.values_list('registration_id', flat=True)
-                tokens=list(tokend)
+                tokens=list(tokend) 
                 dataNot = {"ruta": "/historial",
                           "descripcion": "Se le ha adjudicado el siguiente servicio: " + solicitud.servicio.nombre}
 
-                send_notificationF(tokens,titles,bodys,dataNot)
+                send_notificationF(tokens,titles,bodys,dataNot) 
 
 
                 data['message'] = 'Solicitud adjudicada exitosamente!.'
@@ -2116,13 +2111,13 @@ class Solicituds(APIView):
                     bodys = '¡Dale un vistazo!'
                     devices = FCMDevice.objects.filter(
                         active=True, user__username=solicitud.proveedor.user_datos.user.email)
-
+                    
                     # Obtiene la lista de registration_ids (tokens)
                     tokend = devices.values_list('registration_id', flat=True)
                     dataNot={"ruta": "/historial", "descripcion": "Puede observar la solicitud " +
                               solicitud.servicio.nombre + " finalizada en la seccion de Historial > PASADAS"}
                     tokens=list(tokend)
-                    send_notificationF(tokens,titles,bodys,dataNot)
+                    send_notificationF(tokens,titles,bodys,dataNot) 
 
 
                 data['message'] = 'Solicitud actualizada exitosamente!.'
@@ -2228,7 +2223,7 @@ class AddSolicitud(APIView):
             data['success'] = False
             return Response(data)
 
-        # Notificacion a los usuarios
+        # Notificacion a los usuarios 
         titles = 'Solicitud Recibida del servicio '+solicitud.servicio.nombre
         bodys = '¡Dale un vistazo!'
         data={
@@ -2262,8 +2257,8 @@ class AddSolicitud(APIView):
                 data['message'] = f"Error al crear Envio_Interesados para proveedor {proveedor}: {str(e)}"
                 data['success'] = False
                 return Response(data)
-
-            try:
+            
+            try:                    
                 # Intenta mandar una notificación al proveedor con el id.
                 # Filtra los dispositivos por el ID del usuario
                 prov = Proveedor.objects.get(id=proveedor)
@@ -2271,12 +2266,12 @@ class AddSolicitud(APIView):
                 datos_prov = Datos.objects.get(id=prov.user_datos_id)
                 user = User.objects.get(id=datos_prov.user.id)
                 u_id = user.id
-                print("idp", u_id)
+                print("idp", u_id)             
                 devices = FCMDevice.objects.filter(active=True, user_id=u_id)
                 # Obtener los tokens de esos dispositivos
                 tokend = devices.values_list('registration_id', flat=True)
                 tokens = list(tokend)
-                print(f"Tokens encontrados para el proveedor {proveedor}: {tokend}")
+                print(f"Tokens encontrados para el proveedor {proveedor}: {tokend}")                  
                 send_notificationF(tokens,titles,bodys,data)
             except Exception as e:
                 print(f"Error al enviar notificación al proveedor {proveedor}: {e}")
@@ -2367,7 +2362,7 @@ class CrearProfesionesFaltantesView(APIView):
             "profesiones_creadas": [],
             "errores": []
         }
-
+        
         # Obtener todos los servicios
         servicios = Servicio.objects.all()
 
@@ -2375,7 +2370,7 @@ class CrearProfesionesFaltantesView(APIView):
         for servicio in servicios:
             # Verificar si ya existe una profesion con el mismo nombre
             profesion_existente = Profesion.objects.filter(nombre=servicio.nombre).first()
-
+            
             if profesion_existente is None:
                 try:
                     # Crear la profesion si no existe
@@ -2429,7 +2424,7 @@ class ProveedoresByProfesion(APIView):
         print(prov_prof)
         serializer = Profesion_ProveedorSerializer(prov_prof, many=True)
         return Response(serializer.data)
-
+    
 class SincronizarProfesionProveedorView(APIView):
    def post(self, request, format=None):
     # Diccionario para almacenar resultados
@@ -2465,7 +2460,7 @@ class SincronizarProfesionProveedorView(APIView):
                 profesion_proveedor, created = Profesion_Proveedor.objects.update_or_create(
                     profesion=profesion,
                     proveedor=proveedor,
-                    ano_experiencia=proveedor.ano_profesion,
+                    ano_experiencia=proveedor.ano_profesion, 
                 )
 
                 if created:
@@ -2609,13 +2604,13 @@ class Proveedores_Details(APIView):
                 user__id=proveedorActual.user_datos.user.id)
             # Obtiene la lista de registration_ids (tokens)
             tokend = devices.values_list('registration_id', flat=True)
-
+            
             dataMensaje["ruta"] = "/perfil"
             dataMensaje["descripcion"] = "¡Su solicitud de agregar profesión fue aceptada!"
             titles="Tienes una Nueva Profesión: "+profesion
             bodys="¡Dale un vistazo!"
             tokens=list(tokend)
-            send_notificationF(tokens,titles,bodys,dataMensaje)
+            send_notificationF(tokens,titles,bodys,dataMensaje) 
 
             data["error"] = "Sin Errores"
             return Response(data)
@@ -3568,8 +3563,8 @@ class Proveedor_Profesiones(APIView):
             titles="Tienes una Nueva Profesión: "+profesion,
             bodys="¡Dale un vistazo!",
             tokens=list(tokend)
-            send_notificationF(tokens,titles,bodys,data)
-
+            send_notificationF(tokens,titles,bodys,data) 
+            
             data['success'] = True
             data['message'] = 'Se ha creado la tabla Profesion_Proveedor y se ha registrado en la base de datos correctamente.'
             data['profesion_proveedor'] = serializer.data
@@ -3663,13 +3658,13 @@ class Envio(APIView):
                 devices = FCMDevice.objects.filter(
                     active=True, user__username=solicitante.user_datos.user.email)
                 tokend = devices.values_list('registration_id', flat=True)
-
+            
                 dataNot={"ruta": "/historial",
                           "descripcion": "Ha cambiado el precio del siguiente servicio: " + solicitud.servicio.nombre}
-
+                
                 tokens=list(tokend)
-                send_notificationF(tokens,titles,bodys,dataNot)
-
+                send_notificationF(tokens,titles,bodys,dataNot) 
+            
             else:
                 titles = 'Tienes una nueva oferta en el servicio de ' + \
                     solicitud.servicio.nombre + ' que solicitaste.'
@@ -3680,7 +3675,7 @@ class Envio(APIView):
                 dataNot={"ruta": "/historial",
                           "descripcion": "Ha recibido una oferta en el siguiente servicio: " + solicitud.servicio.nombre}
                 tokens=list(tokend)
-                send_notificationF(tokens,titles,bodys,dataNot)
+                send_notificationF(tokens,titles,bodys,dataNot) 
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -3706,27 +3701,27 @@ class Notificacion_Chat(APIView):
         titles = 'Nuevo Mensaje de ' + remitente_nombre.nombres + remitente_nombre.apellidos
         isSolicitante = request.data.get("isSolicitante")
         bodys = request.data.get("message")
-        user = request.data.get("user")
+        user = request.data.get("user") 
         url = request.data.get("url")
         ruta = ""
         if isSolicitante:
-            ruta = "/main-tabs/chat"
+            ruta = "/main-tabs/chat"  
             dato_prov = Datos.objects.get(user_id=user)
             dato_id_prov = dato_prov.user_id
             devices = FCMDevice.objects.filter(active=True, user_id=dato_id_prov)
-            tokend = devices.values_list('registration_id', flat=True)
+            tokend = devices.values_list('registration_id', flat=True) 
             tokens=list(tokend)
             print("soli true")
             data={"url": url, "ruta": ruta, "descripcion": "Tiene un Mensaje nuevo"}
             print("tok",tokens)
-            send_notificationF(tokens,titles,bodys,data)
+            send_notificationF(tokens,titles,bodys,data) 
         else:
-            ruta = "/main/chat"
-            print("soli false")
+            ruta = "/main/chat"   
+            print("soli false")         
             data={"url": url, "ruta": ruta, "descripcion": "Tiene un Mensaje nuevo"}
 
-            send_notificationF(tokens,titles,bodys,data)
-
+            send_notificationF(tokens,titles,bodys,data) 
+           
         return Response(user)
 
 
@@ -3741,12 +3736,13 @@ class Notificacion_Chat_Proveedor(APIView):
         soli_id = solicitante.user_datos_id
         dato_soli = Datos.objects.get(id=soli_id)
         dato_id_soli = dato_soli.user_id
+        print("id_fcm",dato_id_soli)
         devices = FCMDevice.objects.filter(active=True, user_id=dato_id_soli)
         tokend = devices.values_list('registration_id', flat=True)
-        url = request.data.get("url")
-        data={"url": url, "ruta": "/main/chat","descripcion": "Tiene un Mensaje nuevo"}
+        print("prov tokend",tokend)
+        data={"ruta": "/main/home","descripcion": "Tiene un Mensaje nuevo"}
         tokens=list(tokend)
-        x = send_notificationF(tokens,titles,bodys,data)
+        x = send_notificationI(tokens,titles,bodys,data) 
         print(x)
         return Response(getUsuario)
 
@@ -3758,11 +3754,11 @@ class Notificacion_General(APIView):
         titles = request.data.get("title")
         devices = FCMDevice.objects.filter(active=True, user_id=user)
         tokend = devices.values_list('registration_id', flat=True)
-
+        
         data={"ruta": "Historial", "descripcion": "Proveedor Interesado"}
         tokens=list(tokend)
-        send_notificationF(tokens,titles,bodys,data)
-
+        send_notificationF(tokens,titles,bodys,data) 
+        
         return Response(user)
 
 #! Paginar
@@ -4249,8 +4245,8 @@ class Notificaciones(APIView, MyPaginationMixin):
     #     except:
     #         data["error"]= "Notificacion no creada"
     #         return Response(data)
-
-
+    
+    
     def post(self, request, format=None):
         data = {}
         user = User.objects.first()
@@ -4287,10 +4283,10 @@ class Notificaciones(APIView, MyPaginationMixin):
         try:
             devices = FCMDevice.objects.filter(active=True)
             tokend = devices.values_list('registration_id', flat=True)
-
+            
             tokens=list(tokend)
-            send_notificationF(tokens,titles,descripcion,dataNot)
-
+            send_notificationF(tokens,titles,descripcion,dataNot)    
+            
             data['success'] = True
             data['message'] = "La notificación ha sido creada correctamente."
             serializer = NotificacionSerializer(notificacion)
@@ -4301,17 +4297,17 @@ class Notificaciones(APIView, MyPaginationMixin):
             data['success'] = False
             data['message'] = f"Hubo un error al enviar la notificación: {str(e)}"
             return Response(data)
-
+        
     def put(self, request, id, format=None):
         try:
             id = int(id)
             notificacion = Notificacion.objects.get(id=id)
             serializer = NotificacionSerializer(notificacion, data=request.data, partial=True)
             if serializer.is_valid():
-                serializer.save()
+                serializer.save() 
                 return Response(serializer.data)
             print("Errores de validación:", serializer.errors)
-
+            
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         except Notificacion.DoesNotExist:
@@ -4324,7 +4320,7 @@ class Notificaciones(APIView, MyPaginationMixin):
         try:
             notificacion= Notificacion.objects.get(id=id)
             notificacion.delete()
-
+            
             devices = FCMDevice.objects.filter(active=True)
             tokend = devices.values_list('registration_id', flat=True)
             tokens=list(tokend)
@@ -4356,7 +4352,7 @@ class Notificaciones_Details(APIView):
         noti.estado = request.data.get('estado')
         noti.save()
         return Response(status=status.HTTP_200_OK)
-
+    
     def post(self, request):
         pk = request.GET.get('id')
         prove_select = Notificacion.objects.get(id=pk)
@@ -4383,7 +4379,7 @@ class Notificaciones_Details(APIView):
                     user = User.objects.get(id=datos_prov.user.id)
                     u_id = user.id
                     print("idp", u_id)
-
+                    
                     devices = FCMDevice.objects.filter(active=True, user_id=u_id)
                     # Obtener los tokens de esos dispositivos
                     tokens = devices.values_list('registration_id', flat=True)
@@ -4404,7 +4400,7 @@ class Notificaciones_Details(APIView):
                     user = User.objects.get(id=datos_prov.user.id)
                     u_id = user.id
                     print("idp", u_id)
-
+                    
                     devices = FCMDevice.objects.filter(active=True, user_id=u_id)
                     # Obtener los tokens de esos dispositivos
                     tokens = devices.values_list('registration_id', flat=True)
@@ -4414,7 +4410,7 @@ class Notificaciones_Details(APIView):
                         send_notificationF(list(tokens), prove_select.titulo, descripcion, dataNot)
                     else:
                         # Si no hay dispositivos activos para este proveedor, puedes registrar un error o continuar
-                        print(f"No se encontraron dispositivos activos para el proveedor con user_id {p_user_id}")
+                        print(f"No se encontraron dispositivos activos para el proveedor con user_id {p_user_id}")          
 
         return Response({"message": "Notificación enviada correctamente a los proveedores seleccionados."}, status=status.HTTP_200_OK)
 
@@ -4480,11 +4476,11 @@ class Promociones(APIView):
                 devices = FCMDevice.objects.filter(
                     active=True, user__groups__name='Solicitante')
                 tokend = devices.values_list('registration_id', flat=True)
-
+            
                 dataNot={"ruta": "Home",
                           "descripcion": "Se ha creado una nueva promoción"}
                 tokens=list(tokend)
-                send_notificationF(tokens,titles,bodys,dataNot)
+                send_notificationF(tokens,titles,bodys,dataNot)    
 
                 data['success'] = True
                 data['msg'] = "La promoción se ha creado exitosamente"
@@ -4609,7 +4605,7 @@ class Cupones(APIView):
         type_category = request.data.get('tipo_categoria')
 
         try:
-            cupon = Cupon.objects.create(titulo=title, descripcion=desc, fecha_expiracion=exp, porcentaje=descuent, participantes=partic,
+            cupon = Cupon.objects.create(titulo=title, descripcion=desc, fecha_expiracion=exp, porcentaje=descuent, participantes=partic, 
                                          codigo=code, fecha_iniciacion=ini, puntos=puntos, foto=photo, tipo_categoria=type_category, cantidad=cant)
 
         except:
@@ -4617,7 +4613,7 @@ class Cupones(APIView):
             return Response(data)
         else:
 
-            try:
+            try:              
                 for type_category in request.POST.getlist('categorias'):
                     categ = Categoria.objects.all().filter(nombre=type_category)
                     CuponCategoria.objects.create(
@@ -4634,11 +4630,11 @@ class Cupones(APIView):
                 devices = FCMDevice.objects.filter(
                     active=True, user__groups__name="Solicitante")
                 tokend = devices.values_list('registration_id', flat=True)
-
+            
                 dataNot={"ruta": "/promociones",
                           "descripcion": "Se encuentra disponible un nuevo cupón!"}
                 tokens=list(tokend)
-                send_notificationF(tokens,titles,bodys,dataNot)
+                send_notificationF(tokens,titles,bodys,dataNot) 
 
                 data['success'] = True
                 data['msg'] = "El cupon se ha creado exitosamente"
@@ -4830,11 +4826,11 @@ class PagosTarjeta(APIView):
                 devices = FCMDevice.objects.filter(
                     active=True, user__username=solicitud.proveedor.user_datos.user.email)
                 tokend = devices.values_list('registration_id', flat=True)
-
+            
                 dataNot={"ruta": "/historial", "descripcion": "El pago por el servicio de " +
                           solicitud.servicio.nombre + " fue existoso"}
                 tokens=list(tokend)
-                send_notificationF(tokens,titles,bodys,dataNot)
+                send_notificationF(tokens,titles,bodys,dataNot) 
 
                 return Response(data)
 
@@ -4891,11 +4887,11 @@ class PagosEfectivo(APIView):
                 devices = FCMDevice.objects.filter(
                     active=True, user__id=solicitud.proveedor.user_datos.user.id)
                 tokend = devices.values_list('registration_id', flat=True)
-
+            
                 dataNot={"ruta": "/historial", "descripcion": "El pago por el servicio de " +
                           solicitud.servicio.nombre + " fue existoso"}
                 tokens=list(tokend)
-                send_notificationF(tokens,titles,bodys,dataNot)
+                send_notificationF(tokens,titles,bodys,dataNot) 
 
                 return Response(data)
 
@@ -4985,7 +4981,7 @@ class ValorTotal(APIView):
      def get(self, request, format=None):
         totalE = PagoEfectivo.objects.aggregate(total=Sum('valor'))['total'] or 0
         totalT = PagoTarjeta.objects.aggregate(total=Sum('valor'))['total'] or 0
-
+        
         total = totalE + totalT
 
         return Response({'total': total})
@@ -5054,7 +5050,7 @@ class Suggestions(APIView):
             bodys="¡Sorry, no podrás acceder a la categoria!",
         )
         tokens=list(tokend)
-        send_notificationF(tokens,titles,bodys,data)
+        send_notificationF(tokens,titles,bodys,data) 
         return Response(status=status.HTTP_204_NO_CONTENT)'''
 
     def post(self, request, format=None):
@@ -5083,16 +5079,19 @@ class Suggestions_Details(APIView):
         serializer = SuggestionSerializer(sugerencia)
         return Response(serializer.data)
 
-    def put(self, request, pk, format=None):
-        sugerencia = Suggestion.objects.get(id=pk)
-        estado = request.data.get("estado")
-        if estado:
-            sugerencia.estado = estado
+    def put(self, request):
+        ident = request.GET.get('id')
+        try:
+            sugerencia = Suggestion.objects.get(id=ident)
+        except Suggestion.DoesNotExist:
+            return JsonResponse({'message': 'Sugerencia no encontrada.'}, status=404)
+
+        try:
+            sugerencia.estado = not sugerencia.estado
             sugerencia.save()
             return Response(status=status.HTTP_200_OK)
-        else:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-
+        except Exception as e:
+            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class ReadSuggestions(APIView, MyPaginationMixin):
     queryset = Suggestion.objects.all().filter(estado=True)
@@ -5139,7 +5138,7 @@ class Politics(APIView):
         else:
             data['error'] = "Error al crear!."
             return Response(data)
-
+        
     def put(self, request, identifier, format=None):
         try:
             pol = Politicas.objects.get(identifier=identifier)
@@ -5604,7 +5603,7 @@ class SendNotificacion(APIView):
             tokens=list(tokend)
 
             send_notificationF(tokens,titles,descripcion,dataNot)
-
+            
             data['success'] = True
             data['message'] = "La notificación ha sido creada correctamente."
             serializer = NotificacionMasivaSerializer(notificacion)
@@ -5615,17 +5614,17 @@ class SendNotificacion(APIView):
             data['success'] = False
             data['message'] = f"Hubo un error al enviar la notificación: {str(e)}"
             return Response(data)
-
+    
     def put(self, request, id, format=None):
         try:
             id = int(id)
             notificacion = NotificacionMasiva.objects.get(id=id)
             serializer = NotificacionMasivaSerializer(notificacion, data=request.data, partial=True)
             if serializer.is_valid():
-                serializer.save()
+                serializer.save() 
                 return Response(serializer.data)
             print("Errores de validación:", serializer.errors)
-
+            
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         except NotificacionMasiva.DoesNotExist:
@@ -5639,7 +5638,7 @@ class SendNotificacion(APIView):
         try:
             notificacion_masiva = NotificacionMasiva.objects.get(id=id)
             notificacion_masiva.delete()
-
+            
             devices = FCMDevice.objects.filter(active=True)
             tokend = devices.values_list('registration_id', flat=True)
             tokens=list(tokend)
@@ -5649,7 +5648,7 @@ class SendNotificacion(APIView):
             dataNot["descripcion"] = descripcion
 
             send_notificationF(tokens,titles,descripcion,dataNot)
-
+            
             data['success'] = True
             data['message'] = "Se ha eliminado la notificación exitosamente."
             return Response(data)
@@ -5672,7 +5671,7 @@ class SendNotificacion_Details(APIView):
         noti.estado = request.data.get('estado')
         noti.save()
         return Response(status=status.HTTP_200_OK)
-
+    
     def post(self, request):
         pk = request.GET.get('id')
         prove_select = NotificacionMasiva.objects.get(id=pk)
@@ -5697,7 +5696,7 @@ class SendNotificacion_Details(APIView):
                     user = User.objects.get(id=datos_prov.user.id)
                     u_id = user.id
                     print("idp", u_id)
-
+                    
                     devices = FCMDevice.objects.filter(active=True, user_id=u_id)
 
                     # Obtener los tokens de esos dispositivos
@@ -5719,7 +5718,7 @@ class SendNotificacion_Details(APIView):
                     user = User.objects.get(id=datos_prov.user.id)
                     u_id = user.id
                     print("idp", u_id)
-
+                    
                     devices = FCMDevice.objects.filter(active=True, user_id=u_id)
 
                     # Obtener los tokens de esos dispositivos
@@ -5730,7 +5729,7 @@ class SendNotificacion_Details(APIView):
                         send_notificationF(list(tokens), prove_select.titulo, descripcion, dataNot)
                     else:
                         # Si no hay dispositivos activos para este proveedor, puedes registrar un error o continuar
-                        print(f"No se encontraron dispositivos activos para el proveedor con user_id {u_id}")
+                        print(f"No se encontraron dispositivos activos para el proveedor con user_id {u_id}")          
 
         return Response({"message": "Notificación enviada correctamente a los proveedores seleccionados."}, status=status.HTTP_200_OK)
 
@@ -5951,7 +5950,7 @@ class RevisarCaducidad (APIView):
             return Response("OK")
         except:
             return Response("error: ")
-
+        
 class Bancos(APIView):
     def get(self, request):
         try:
@@ -5980,5 +5979,6 @@ class Bancos(APIView):
         bancocreado = Banco.objects.create(nombre=nombre, estado=estado)
 
         return Response({'id': bancocreado.id, 'nombre': bancocreado.nombre, 'estado': bancocreado.estado}, status=status.HTTP_201_CREATED)
-
-
+     
+    
+    

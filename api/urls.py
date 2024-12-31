@@ -28,6 +28,7 @@ urlpatterns += [
     path('read-suggestions/', ReadSuggestions.as_view()),
     path('unread-suggestions/', UnreadSuggestions.as_view()),
     path('suggestion/<str:pk>', Suggestions_Details.as_view()),
+    path('suggestion_estado/', Suggestions_Details.as_view()),
     path('post-token/', DeviceNotification.as_view()),
     path('dispositivos-notificacion/', DeviceNotification.as_view()),
     path('categoria_update/<str:id>', Categorias.as_view()),
