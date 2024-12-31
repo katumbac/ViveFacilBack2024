@@ -226,14 +226,45 @@ class CardsAuth(APIView):
 
 class InsigniasPersonales(APIView):
 
-    def get(self, request, id,  format=None):
-        print("AAAAAAAAAAAAAAAAAAAAAA")
+    def get(self, request, id, format=None):
+        prov = Proveedor.objects.get(user_datos_id=id)
+        profesion = prov.profesion
+        cant_Servicios = prov.servicios
 
-        print(id)
-        print("EEEEEEEEEEE")
-        insignias = Insignia.objects.all().filter()
-        serializer = InsigniaSerializer(insignias, many=True)
+        print("Profesión del proveedor:", profesion)
+
+        insignias_profesion = Insignia.objects.filter(servicio=profesion)
+        print("Insignias relacionadas con la profesión:", insignias_profesion)
+
+        if not insignias_profesion.exists():  
+            print("No se ha encontrado una insignia para esta profesión, creando nueva.")
+            
+            insigniaNueva = Insignia.objects.create(
+                nombre="Insignia de Bienvenida",
+                imagen="insignias/01.png",
+                servicio=profesion,
+                pedidos=0,
+                descripcion="Bienvenidos a Vive Facil",
+                tipo="Oficio",
+                tipo_usuario="Proveedor",
+            )
+            insigniaNueva.save()
+            print("Insignia creada con éxito para el proveedor:", insigniaNueva)
+
+            list_of_ids = [insigniaNueva.id]
+        else:
+            list_of_ids = []
+
+        for i in insignias_profesion:
+            print("Verificando insignia:", i)
+            if cant_Servicios >= i.pedidos and i.estado and profesion in i.servicio:
+                list_of_ids.append(i.id)
+                print("Insignia asignada:", i)
+
+        medallasMostrar = Insignia.objects.filter(id__in=list_of_ids)
+        serializer = InsigniaSerializer(medallasMostrar, many=True)
         return Response(serializer.data)
+
 
     def post(self, request, format=None):
         data = {}
@@ -3740,7 +3771,7 @@ class Notificacion_Chat_Proveedor(APIView):
         devices = FCMDevice.objects.filter(active=True, user_id=dato_id_soli)
         tokend = devices.values_list('registration_id', flat=True)
         print("prov tokend",tokend)
-        data={"ruta": "/main/home","descripcion": "Tiene un Mensaje nuevo"}
+        data={"ruta": "/main/chat","descripcion": "Tiene un Mensaje nuevo"},
         tokens=list(tokend)
         x = send_notificationI(tokens,titles,bodys,data) 
         print(x)
@@ -5079,19 +5110,16 @@ class Suggestions_Details(APIView):
         serializer = SuggestionSerializer(sugerencia)
         return Response(serializer.data)
 
-    def put(self, request):
-        ident = request.GET.get('id')
-        try:
-            sugerencia = Suggestion.objects.get(id=ident)
-        except Suggestion.DoesNotExist:
-            return JsonResponse({'message': 'Sugerencia no encontrada.'}, status=404)
-
-        try:
-            sugerencia.estado = not sugerencia.estado
+    def put(self, request, pk, format=None):
+        sugerencia = Suggestion.objects.get(id=pk)
+        estado = request.data.get("estado")
+        if estado:
+            sugerencia.estado = estado
             sugerencia.save()
             return Response(status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
 
 class ReadSuggestions(APIView, MyPaginationMixin):
     queryset = Suggestion.objects.all().filter(estado=True)

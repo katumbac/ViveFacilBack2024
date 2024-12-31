@@ -6883,7 +6883,7 @@
         "kind": 6,
         "importPath": "api.views",
         "description": "api.views",
-        "peekOfCode": "class InsigniasPersonales(APIView):\n    def get(self, request, id,  format=None):\n        print(\"AAAAAAAAAAAAAAAAAAAAAA\")\n        print(id)\n        print(\"EEEEEEEEEEE\")\n        insignias = Insignia.objects.all().filter()\n        serializer = InsigniaSerializer(insignias, many=True)\n        return Response(serializer.data)\n    def post(self, request, format=None):\n        data = {}",
+        "peekOfCode": "class InsigniasPersonales(APIView):\n    def get(self, request, id, format=None):\n        prov = Proveedor.objects.get(user_datos_id=id)\n        profesion = prov.profesion\n        cant_Servicios = prov.servicios\n        print(\"Profesión del proveedor:\", profesion)\n        insignias_profesion = Insignia.objects.filter(servicio=profesion)\n        print(\"Insignias relacionadas con la profesión:\", insignias_profesion)\n        if not insignias_profesion.exists():  \n            print(\"No se ha encontrado una insignia para esta profesión, creando nueva.\")",
         "detail": "api.views",
         "documentation": {}
     },
